@@ -1,0 +1,51 @@
+{# Painel de FILTROS que sobe de baixo (modelo: ABA FILTROS.png), igual na Nova venda e em PRODUTOS.
+   Precisa de "categorias" (só as que têm produto). As categorias vêm do cadastro. #}
+{% set principais = categorias|selectattr("nivel", "equalto", 0)|list %}
+<div class="folha-fundo oculto" id="folha-fundo"></div>
+<div class="folha oculto" id="folha-filtros" role="dialog" aria-modal="true" aria-labelledby="folha-titulo">
+  <div class="folha-alca" aria-hidden="true"></div>
+  <h3 class="folha-titulo" id="folha-titulo" tabindex="-1">Filtros</h3>
+  <div class="folha-conteudo">
+    {% if principais %}
+    <section class="filtro-secao">
+      <h4>Categoria</h4>
+      <div class="grade-radio" id="filtro-categorias">
+        <label class="radio-op"><input type="radio" name="f_cat" value="" data-nome="" checked><span>Todas</span></label>
+        {% for c in principais %}
+        <label class="radio-op{% if loop.index > 8 %} extra oculto{% endif %}"><input type="radio" name="f_cat" value="{{ c.id }}" data-nome="{{ c.nome }}" data-icone="{{ c.icone }}"><span>{{ c.nome }}</span></label>
+        {% endfor %}
+        {% if principais|length > 8 %}
+        <button type="button" class="ver-todas" data-grupo="filtro-categorias">Ver todas ({{ principais|length }})</button>
+        {% endif %}
+      </div>
+    </section>
+    {% for c in principais %}
+    {% set filhas = categorias|selectattr("categoria_pai_id", "equalto", c.id)|list %}
+    {% if filhas %}
+    <section class="filtro-secao filtro-sub oculto" data-pai="{{ c.id }}">
+      <h4>Tipo de {{ c.nome }}</h4>
+      <div class="segmentos">
+        <label class="seg-op"><input type="radio" name="f_sub_{{ c.id }}" value="" checked><span>Tudo</span></label>
+        {% for f in filhas %}
+        <label class="seg-op"><input type="radio" name="f_sub_{{ c.id }}" value="{{ f.id }}" data-nome="{{ f.nome_completo }}" data-icone="{{ f.icone }}"><span>{{ f.nome }}</span></label>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    <section class="filtro-secao">
+      <h4>Preço</h4>
+      <div class="segmentos quatro">
+        <label class="seg-op"><input type="radio" name="f_preco" value="" checked><span>Qualquer</span></label>
+        {% for v in [50, 100, 200] %}
+        <label class="seg-op"><input type="radio" name="f_preco" value="{{ v }}"><span>Até R$ {{ v }}</span></label>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  <div class="folha-botoes">
+    <button type="button" class="claro" id="limpar-filtros">Limpar</button>
+    <button type="button" id="aplicar-filtros">Ver produtos</button>
+  </div>
+</div>

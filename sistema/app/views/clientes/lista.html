@@ -1,0 +1,121 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Pessoas" %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="acoes"><a class="botao" href="/clientes/nova">➕ NOVA PESSOA</a></div>
+{% if lista %}
+{# O MESMO FILTRO da Nova venda: busca pelo nome ou telefone + ⚙️ Filtros (abecedário).
+   Sem buscar, só as 6 ÚLTIMAS PESSOAS QUE A ELITA MEXEU (cadastrou, vendeu, anotou pagamento, ajustou
+   ou abriu a ficha neste aparelho). Sem JavaScript, a busca vai pelo servidor. #}
+<form method="get" action="/clientes" class="busca-com-filtro" id="form-pessoas">
+  <input type="search" name="busca" id="busca-pessoa" value="{{ busca }}" placeholder="Nome ou telefone" aria-label="Procurar pessoa pelo nome ou telefone" autocomplete="off">
+  <button type="button" class="botao-filtros" id="abrir-letras" aria-haspopup="dialog" aria-controls="folha-letras" aria-label="Filtrar pessoas pela letra">
+    <span aria-hidden="true">⚙️</span><span class="texto-filtros"> Filtros</span><span class="filtros-qtd oculto" id="letras-qtd">1</span>
+  </button>
+</form>
+<div class="filtros-ativos oculto" id="letras-ativas" aria-live="polite"></div>
+<p class="lista-titulo" id="titulo-pessoas">🕘 Últimas pessoas que você mexeu</p>
+<ul class="lista" id="lista-pessoas">
+  {% for c in lista %}
+  <li data-busca="{{ c.nome }}" data-tel="{{ u.so_numeros(c.whatsapp) }}" data-letra="{{ c.letra }}" data-id="{{ c.cliente_id }}" data-mexida="{{ c.mexida }}"{% if c.recente %} data-recente="1"{% endif %}{% if busca and busca|lower not in c.nome|lower %} class="escondida"{% endif %}>
+    <a class="item {% if c.atrasado|float > 0 %}atrasado{% elif c.hoje|float > 0 %}de-hoje{% endif %}" href="/clientes/{{ c.cliente_id }}">
+      <span><span class="nome">{{ c.nome }}</span><br><span class="sub">{{ c.whatsapp or "sem WhatsApp" }}</span></span>
+      <span class="valor">{% if c.falta_total|float > 0 %}{{ c.falta_total|reais }}{% else %}✅{% endif %}</span>
+    </a></li>
+  {% endfor %}
+</ul>
+<p class="vazio oculto" id="nenhuma-pessoa">Ninguém com esse nome ou telefone. Confira, ou toque em NOVA PESSOA.</p>
+<p class="dica oculto" id="mais-pessoas">Tem mais pessoas parecidas. Continue digitando o nome.</p>
+{% with quem="Pessoas" %}{% include "layout/_folha_letras.html" %}{% endwith %}
+{% else %}
+<p class="vazio">Nenhuma pessoa ainda. Toque em NOVA PESSOA.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+  // PESSOAS: o mesmo filtro da Nova venda. Sem digitar: as 6 últimas pessoas que a Elita mexeu.
+  // Digitando (nome ou telefone): no máximo 6 que combinam. Com uma letra: TODAS daquela letra, em
+  // ordem alfabética.
+  (function () {
+    const lista = document.getElementById("lista-pessoas");
+    if (!lista) return;
+    const MAX_ACHADOS = 6;
+    const busca = document.getElementById("busca-pessoa");
+    const titulo = document.getElementById("titulo-pessoas");
+    const itens = [...lista.children];
+    // "mexeu": o que está no banco (cadastro, venda, pagamento, ajuste) + as fichas abertas neste
+    // aparelho (guardadas pela ficha). Vale a mais nova das duas.
+    let abertas = {};
+    try { abertas = JSON.parse(localStorage.getItem("elita:pessoas-abertas")) || {}; } catch (e) { abertas = {}; }
+    const quando = (li) => { const a = li.dataset.mexida || "", b = abertas[li.dataset.id] || ""; return a > b ? a : b; };
+    const porMexida = [...itens].sort((a, b) => (quando(b) > quando(a) ? 1 : quando(b) < quando(a) ? -1 : 0));
+    itens.forEach((li) => { delete li.dataset.recente; });
+    porMexida.slice(0, MAX_ACHADOS).forEach((li) => { li.dataset.recente = "1"; });
+    const porNome = [...itens].sort((a, b) => (a.dataset.busca || "").localeCompare(b.dataset.busca || "", "pt-BR"));
+    const ordemNormal = porMexida;
+    const semAcento = (t) => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    const mostrar = (id, sim) => document.getElementById(id).classList.toggle("oculto", !sim);
+    let letra = "";
+
+    function filtrar() {
+      const termo = semAcento(busca.value);
+      const digitos = termo.replace(/\D/g, "");
+      const limite = letra ? Infinity : MAX_ACHADOS;
+      let combinam = 0;
+      itens.forEach((li) => {
+        const naLetra = !letra || li.dataset.letra === letra;
+        const combina = naLetra && (termo
+          ? semAcento(li.dataset.busca).includes(termo) || (digitos.length >= 3 && (li.dataset.tel || "").includes(digitos))
+          : (letra ? true : !!li.dataset.recente));
+        if (combina) combinam++;
+        li.classList.toggle("escondida", !(combina && combinam <= limite));
+      });
+      titulo.textContent = letra && !termo ? `🔤 Pessoas com ${letra} (${combinam})`
+        : termo ? "🔎 Pessoas encontradas" : "🕘 Últimas pessoas que você mexeu";
+      mostrar("nenhuma-pessoa", (termo || letra) && combinam === 0);
+      mostrar("mais-pessoas", combinam > limite);
+    }
+    busca.addEventListener("input", filtrar);
+    document.getElementById("form-pessoas").addEventListener("submit", (e) => { e.preventDefault(); filtrar(); });
+
+    // Abecedário (painel que sobe de baixo, igual ao da Nova venda)
+    const folha = document.getElementById("folha-letras");
+    const fundo = document.getElementById("letras-fundo");
+    function abrir() {
+      document.querySelectorAll(".letra-op").forEach((b) => b.classList.toggle("ativo", b.dataset.letra === letra));
+      fundo.classList.remove("oculto"); folha.classList.remove("oculto");
+      document.body.classList.add("com-folha");
+      document.getElementById("letras-titulo").focus();
+    }
+    function fechar() {
+      if (folha.classList.contains("oculto")) return;
+      fundo.classList.add("oculto"); folha.classList.add("oculto");
+      document.body.classList.remove("com-folha");
+      document.getElementById("abrir-letras").focus({ preventScroll: true });
+    }
+    function usarLetra(nova) {
+      letra = nova;
+      lista.append(...(letra ? porNome : ordemNormal));
+      const caixa = document.getElementById("letras-ativas");
+      caixa.innerHTML = "";
+      if (letra) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "etiqueta-filtro";
+        b.textContent = `Letra ${letra} ✕`;
+        b.setAttribute("aria-label", `Tirar o filtro da letra ${letra}`);
+        b.addEventListener("click", () => usarLetra(""));
+        caixa.append(b);
+      }
+      caixa.classList.toggle("oculto", !letra);
+      document.getElementById("letras-qtd").classList.toggle("oculto", !letra);
+      filtrar();
+    }
+    document.getElementById("abrir-letras").addEventListener("click", abrir);
+    fundo.addEventListener("click", fechar);
+    document.getElementById("fechar-letras").addEventListener("click", fechar);
+    document.getElementById("limpar-letras").addEventListener("click", () => { usarLetra(""); fechar(); });
+    document.querySelectorAll(".letra-op").forEach((b) => b.addEventListener("click", () => { usarLetra(b.dataset.letra); fechar(); }));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") fechar(); });
+    usarLetra("");
+  })();
+</script>
+{% endblock %}

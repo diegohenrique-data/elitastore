@@ -1,0 +1,12 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% if s and s.ativo %}{% with titulo=titulo %}{% include "layout/_topo.html" %}{% endwith %}
+{% else %}<header class="topo"><h1>{{ titulo }}</h1></header>{% endif %}
+<div class="cartao">
+  <p class="texto-grande sem-margem">{{ texto }}</p>
+</div>
+<div class="acoes">
+  <a class="botao" href="{{ link|default('/') }}">{{ link_texto|default('VOLTAR AO INÍCIO') }}</a>
+</div>
+{% endblock %}

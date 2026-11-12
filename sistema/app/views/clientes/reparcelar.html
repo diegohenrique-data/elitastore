@@ -1,0 +1,60 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Reparcelar", voltar="/clientes/" ~ c.id %}{% include "layout/_topo.html" %}{% endwith %}
+{# REPARCELAR: tudo o que ela ainda deve vira parcelas novas, a partir de hoje. O total não muda
+   (para mudar o valor, é o AJUSTAR VALOR). #}
+<form method="post" action="/clientes/{{ c.id }}/reparcelar" class="cartao" id="reparcelar" data-falta="{{ falta }}" data-confirmar="Reparcelar o que ela deve? As parcelas de antes viram estas novas.">
+  <p class="rotulo">{{ c.nome }} me deve hoje</p>
+  <p class="numero-grande antes-do-campo">{{ falta|reais }}</p>
+  <p class="sub">Hoje são {{ abertas|length }} {{ "parcela" if abertas|length == 1 else "parcelas" }} para pagar. Elas viram parcelas novas, do jeito que vocês combinarem agora.</p>
+
+  <div class="duas-colunas">
+    <label class="campo"><span>Em quantas vezes?</span>
+      <select name="vezes" id="vezes">{% for n in range(1, 25) %}<option value="{{ n }}" {% if n == 3 %}selected{% endif %}>{{ n }} {{ "vez" if n == 1 else "vezes" }}</option>{% endfor %}</select></label>
+    <label class="campo"><span>Paga no dia</span>
+      <select name="dia" id="dia">{% for n in range(1, 32) %}<option value="{{ n }}" {% if n == dia_padrao %}selected{% endif %}>dia {{ n }}</option>{% endfor %}</select></label>
+  </div>
+  <fieldset class="escolhas duas">
+    <legend>Paga quantas vezes por mês?</legend>
+    <label><input type="radio" name="por_mes" value="1" checked><span>1 vez no mês</span></label>
+    <label><input type="radio" name="por_mes" value="2"><span>2 vezes no mês</span></label>
+  </fieldset>
+  {% set dia2_padrao = dia_padrao + 10 if dia_padrao <= 18 else dia_padrao - 15 %}
+  <label class="campo oculto" id="campo-dia2"><span>E também no dia</span>
+    <select name="dia2" id="dia2">{% for n in range(1, 32) %}<option value="{{ n }}" {% if n == dia2_padrao %}selected{% endif %}>dia {{ n }}</option>{% endfor %}</select></label>
+  <label class="campo"><span>Por quê? (opcional)</span>
+    <input type="text" name="motivo" placeholder="Ex.: pediu mais prazo"></label>
+
+  <p class="parte-conta certo" id="resumo-reparcelar" aria-live="polite"></p>
+  <button type="submit" class="verde">🔁 REPARCELAR</button>
+</form>
+<p class="dica">O total que ela deve não muda. Para aumentar ou dar desconto, use <strong>AJUSTAR VALOR</strong> na ficha dela.</p>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Mostra na hora como vão ficar as parcelas (mesma conta do sistema: a sobra dos centavos vai na 1ª).
+  (function () {
+    const form = document.getElementById("reparcelar");
+    const falta = parseFloat(form.dataset.falta) || 0;
+    const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    function mostrar() {
+      const vezes = parseInt(document.getElementById("vezes").value);
+      const dia = parseInt(document.getElementById("dia").value);
+      const dia2 = parseInt(document.getElementById("dia2").value);
+      const duas = form.querySelector('input[name="por_mes"]:checked').value === "2";
+      document.getElementById("campo-dia2").classList.toggle("oculto", !duas);
+      const centavos = Math.round(falta * 100);
+      const base = Math.floor(centavos / vezes) / 100;
+      const primeira = (centavos - Math.floor(centavos / vezes) * (vezes - 1)) / 100;
+      const quando = duas && dia2 !== dia && vezes > 1 ? `nos dias ${Math.min(dia, dia2)} e ${Math.max(dia, dia2)}` : `todo dia ${dia}`;
+      const aviso = duas && dia2 === dia && vezes > 1 ? " ⚠️ Escolha dois dias diferentes." : "";
+      document.getElementById("resumo-reparcelar").textContent = vezes === 1
+        ? `Fica: 1 vez de ${reais(falta)}, no dia ${dia}.${aviso}`
+        : `Fica: ${vezes} vezes de ${reais(base)}${primeira !== base ? ` (a 1ª de ${reais(primeira)})` : ""}, ${quando}.${aviso}`;
+    }
+    form.addEventListener("change", mostrar);
+    mostrar();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Excluir pessoa", voltar="/clientes/" ~ c.id %}{% include "layout/_topo.html" %}{% endwith %}
+{% if falta|float > 0 %}
+{# Quem ainda deve não sai da lista: senão o fiado dela some do RECEBER. #}
+<div class="cartao atrasado">
+  <p class="sem-margem"><strong>{{ c.nome }}</strong> ainda deve <strong>{{ falta|reais }}</strong>.</p>
+  <p style="margin:12px 0 0">Para excluir, primeiro anote o pagamento em <strong>ELA PAGOU</strong>{% if s.e_dona %} ou ajuste o valor para zero em <strong>AJUSTAR VALOR</strong>{% endif %}.</p>
+</div>
+<div class="acoes empilhadas">
+  <a class="botao" href="/clientes/{{ c.id }}">⬅ VOLTAR PARA A FICHA</a>
+</div>
+{% else %}
+<div class="cartao atrasado">
+  <p class="sem-margem">Tem certeza que quer tirar esta pessoa da sua lista?</p>
+  <p class="caminho" style="margin:8px 0 0"><strong>{{ c.nome }}</strong>{% if c.whatsapp %} · {{ c.whatsapp }}{% endif %}</p>
+  {% if compras %}
+  <p style="margin:12px 0 0">Ela já comprou {{ compras }} {{ "vez" if compras == 1 else "vezes" }}. Ela some de PESSOAS e de VENDER, mas as compras <strong>continuam guardadas</strong> no Meu Dinheiro. Se precisar, dá para trazer de volta.</p>
+  {% else %}
+  <p style="margin:12px 0 0">Ela nunca comprou nada. O cadastro dela vai ser <strong>apagado</strong>.</p>
+  {% endif %}
+</div>
+<form method="post" action="/clientes/{{ c.id }}/excluir" class="acoes duas">
+  <a class="botao claro" href="/clientes/{{ c.id }}">NÃO, VOLTAR</a>
+  <button type="submit" class="perigo-cheio">🗑️ SIM, EXCLUIR</button>
+</form>
+{% endif %}
+{% endblock %}

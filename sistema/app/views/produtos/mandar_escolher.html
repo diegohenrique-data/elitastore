@@ -1,0 +1,23 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Mandar o que tenho", voltar="/produtos" %}{% include "layout/_topo.html" %}{% endwith %}
+<p class="passo">Passo 1 de 3 · {% if cesta %}O que mais vai junto?{% else %}O que você quer mandar?{% endif %}</p>
+{% if categorias %}
+{# O MESMO filtro da tela PRODUTOS (produtos/_painel_filtro.html + static/filtro.js): um estilo só no sistema. #}
+<form method="get" action="/mandar-o-que-tenho" class="painel-filtro" id="filtro" data-usada="">
+  <input type="hidden" name="todos" value="1">{# VER PRODUTOS sem escolher nada = todos os produtos #}
+  {% with painel_titulo="O que vou mandar?",
+          painel_sub=resumo.produtos ~ (" produto" if resumo.produtos == 1 else " produtos") ~ " no estoque para escolher" %}
+  {% include "produtos/_painel_filtro.html" %}
+  {% endwith %}
+  <div class="painel-filtro-botoes">
+    <a class="botao claro" href="{{ ver_todos }}">📋 VER TODOS</a>
+    <button type="submit" name="passo" value="2">🔎 VER PRODUTOS</button>
+  </div>
+  {% if cesta %}{% include "produtos/_cesta.html" %}{% endif %}
+</form>
+{% else %}
+<p class="vazio">Não tem nada no estoque agora. Cadastre produtos em PRODUTOS → NOVO PRODUTO.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/filtro.js?v={{ estilo_v }}" defer></script>{% endblock %}

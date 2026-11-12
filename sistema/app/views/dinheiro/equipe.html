@@ -1,0 +1,64 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Equipe", voltar="/meu-dinheiro" %}{% include "layout/_topo.html" %}{% endwith %}
+
+<form method="post" action="/equipe/nova" class="cartao">
+  <h2>➕ Cadastrar ajudante</h2>
+  <label class="campo"><span>Nome da ajudante</span>
+    <input type="text" name="nome" required autocomplete="off" placeholder="Ex.: Ana"></label>
+  <label class="campo"><span>E-mail dela</span>
+    <input type="email" name="email" required autocomplete="off" placeholder="ana@email.com"></label>
+  <label class="campo"><span>Senha para ela entrar</span>
+    <input type="password" name="senha" required minlength="8" autocomplete="new-password">
+    <small>Pelo menos 8 letras ou números. Passe a senha para ela pessoalmente.</small></label>
+  <button type="submit">CADASTRAR E LIBERAR</button>
+</form>
+
+<div class="permissoes">
+  <div class="cartao em-dia">
+    <h2>✅ A ajudante pode</h2>
+    <ul>
+      <li>Cadastrar e mudar <strong>produtos</strong>, <strong>categorias</strong>, preços e estoque</li>
+      <li>Cadastrar e mudar <strong>pessoas</strong> (clientes)</li>
+      <li><strong>Vender</strong> (na hora e no fiado) e mandar produtos no WhatsApp</li>
+      <li><strong>Receber</strong>: anotar quando a pessoa pagou, cobrar e mudar data</li>
+      <li>Cuidar das <strong>encomendas</strong></li>
+    </ul>
+  </div>
+  <div class="cartao atrasado">
+    <h2>🔒 Só você pode</h2>
+    <ul>
+      <li>Ver o <strong>MEU DINHEIRO</strong> (quanto entrou, gastos)</li>
+      <li>Ver e mudar o <strong>custo</strong> dos produtos (quanto você pagou)</li>
+      <li><strong>Ajustar o valor</strong> do fiado</li>
+      <li><strong>Apagar</strong> o que é dos outros: ela só apaga as vendas que ela mesma fez</li>
+      <li>Cuidar da equipe e dos dados da loja (chave Pix)</li>
+    </ul>
+  </div>
+</div>
+
+<h2 class="secao">Quem tem acesso</h2>
+<ul class="lista">
+  {% for p in lista %}
+  <li class="cartao">
+    <p class="cartao-titulo">{{ p.nome or "Sem nome" }}{% if p.id == s.usuario_id %} (você){% endif %}</p>
+    {% if p.principal %}
+    <p class="linha-info">👑 <strong>Dona principal da loja</strong> · <span class="etiqueta verde">acesso total</span></p>
+    <p class="linha-info sub">Ninguém fica acima dela, e ninguém pode mudar o acesso dela.</p>
+    {% else %}
+    <p class="linha-info">🙋 Ajudante ·
+      {% if p.ativo %}<span class="etiqueta verde">pode entrar</span>{% else %}<span class="etiqueta vermelha">sem acesso</span>{% endif %}</p>
+    <div class="acoes duas no-cartao">
+      {% if p.ativo %}
+      <form method="post" action="/equipe/{{ p.id }}/desligar" data-confirmar="Tirar o acesso de {{ p.nome or 'Sem nome' }}? Ela não vai mais conseguir entrar (dá para liberar de novo depois)."><button class="claro" type="submit">🚫 TIRAR ACESSO</button></form>
+      {% else %}
+      <form method="post" action="/equipe/{{ p.id }}/ligar"><button class="verde" type="submit">✅ LIBERAR</button></form>
+      {% endif %}
+      <a class="botao claro perigo" href="/equipe/{{ p.id }}/excluir">🗑️ EXCLUIR DA EQUIPE</a>
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+<p class="vazio">A ajudante também pode criar o próprio acesso em "Primeira vez aqui?". Nesse caso ela aparece aqui como "sem acesso" e você toca em LIBERAR.</p>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Dívidas", voltar="/meu-dinheiro" %}{% include "layout/_topo.html" %}{% endwith %}
+
+<div class="cartao numero cartao-divida">
+  <p class="rotulo">💸 Somando todas as dívidas, me devem</p>
+  <p class="numero-grande sem-margem">{{ total|reais }}</p>
+  <p class="linha-info">{% if pessoas %}{{ pessoas|length }} {{ "pessoa devendo" if pessoas|length == 1 else "pessoas devendo" }}{% else %}Ninguém está devendo{% endif %}</p>
+  {% if atrasado > 0 %}<p class="linha-info">🔴 Atrasado: <strong>{{ atrasado|reais }}</strong> ({{ atrasadas }} {{ "pessoa" if atrasadas == 1 else "pessoas" }})</p>{% endif %}
+</div>
+
+{% if pessoas %}
+<h2 class="secao">Quem me deve (da maior dívida para a menor)</h2>
+<ul class="lista">
+  {% for p in pessoas %}
+  <li><a class="item {% if p.atrasado|float > 0 %}atrasado{% elif p.hoje|float > 0 %}de-hoje{% endif %}" href="/clientes/{{ p.cliente_id }}">
+    <span><span class="nome">{{ p.nome }}</span><br>
+      <span class="sub">{% if p.atrasado|float > 0 %}🔴 atrasado {{ p.atrasado|reais }}{% elif p.hoje|float > 0 %}🟡 paga hoje{% else %}🟢 próxima {{ p.proximo_vencimento|data_curta }}{% endif %}</span></span>
+    <span class="valor">{{ p.falta_total|reais }}</span>
+  </a></li>
+  {% endfor %}
+</ul>
+<a class="botao claro botao-no-cartao" href="/receber">📲 COBRAR (ABRIR O RECEBER)</a>
+{% else %}
+<p class="vazio">🎉 Ninguém está devendo nada.</p>
+{% endif %}
+{% endblock %}

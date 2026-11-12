@@ -1,0 +1,29 @@
+# Arquivos temporários do Word/Office (aparecem quando o documento está aberto)
+~$*
+*.tmp
+*.wbk
+
+# Arquivos do Windows / Mac
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Configurações locais do Claude Code (cada pessoa tem a sua)
+.claude/settings.local.json
+
+# Segredos: NUNCA enviar para o GitHub
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Código do sistema (Python)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vercel/
+node_modules/
+dist/
+build/

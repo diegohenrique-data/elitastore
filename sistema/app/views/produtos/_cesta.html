@@ -1,0 +1,61 @@
+{# CESTA: a janelinha que fica embaixo com os produtos já escolhidos para mandar, de qualquer
+   categoria. Fica DENTRO do formulário: os escolhidos de outras categorias vão como campo
+   escondido (prod). Tocar no ✕ tira o produto. Recebe: cesta e marcados (os que já têm caixinha nesta tela). #}
+<aside class="cesta{% if not cesta %} vazia{% endif %}" id="cesta" aria-label="Produtos escolhidos para mandar">
+  <p class="cesta-titulo"><span aria-hidden="true">🧺</span> <span id="cesta-qtd" aria-live="polite">{% if cesta %}{{ cesta|length }} {{ "produto escolhido" if cesta|length == 1 else "produtos escolhidos" }}{% else %}Nenhum produto escolhido ainda{% endif %}</span></p>
+  <ul class="cesta-lista" id="cesta-lista">
+    {% for p in cesta %}
+    <li data-id="{{ p.id }}">
+      {% if p.id not in (marcados|default([])) %}<input type="hidden" name="prod" value="{{ p.id }}">{% endif %}
+      {% if p.fotos %}<img src="{{ p.fotos[0] }}" alt="">{% else %}<span class="cesta-sem-foto" aria-hidden="true">📷</span>{% endif %}
+      <span class="cesta-nome">{{ p.nome }}</span>
+      <button type="button" class="cesta-tirar" aria-label="Tirar {{ p.nome }}">✕</button>
+    </li>
+    {% endfor %}
+  </ul>
+  <button type="submit" name="passo" value="3" class="verde" id="cesta-ver">👀 VER ANTES DE MANDAR</button>
+</aside>
+<template id="cesta-modelo"><li><img src="" alt=""><span class="cesta-nome"></span><button type="button" class="cesta-tirar">✕</button></li></template>
+<script>
+  // A cesta acompanha os produtos marcados nesta tela e deixa tirar qualquer um com o ✕.
+  (function () {
+    const cesta = document.getElementById("cesta");
+    const lista = document.getElementById("cesta-lista");
+    const qtd = document.getElementById("cesta-qtd");
+    const caixa = (id) => document.querySelector(`input[type="checkbox"][name="prod"][value="${id}"]`);
+    function contar() {
+      const n = lista.children.length;
+      qtd.textContent = n ? `${n} ${n === 1 ? "produto escolhido" : "produtos escolhidos"}` : "Nenhum produto escolhido ainda";
+      cesta.classList.toggle("vazia", n === 0);
+      document.dispatchEvent(new CustomEvent("cesta-mudou", { detail: n }));
+    }
+    function por(c) {  // c = a caixinha marcada nesta tela
+      if (lista.querySelector(`[data-id="${c.value}"]`)) return;
+      const li = document.getElementById("cesta-modelo").content.firstElementChild.cloneNode(true);
+      const cartao = c.closest("label");
+      li.dataset.id = c.value;
+      const foto = cartao.querySelector(".marcar-foto img");
+      if (foto) li.querySelector("img").src = foto.src;
+      else li.querySelector("img").outerHTML = '<span class="cesta-sem-foto" aria-hidden="true">📷</span>';
+      const nome = cartao.querySelector(".vitrine-nome").textContent;
+      li.querySelector(".cesta-nome").textContent = nome;
+      li.querySelector(".cesta-tirar").setAttribute("aria-label", `Tirar ${nome}`);
+      lista.appendChild(li);
+      lista.scrollTo({ left: lista.scrollWidth, behavior: "smooth" });  // mostra o último que entrou
+    }
+    document.querySelectorAll('input[type="checkbox"][name="prod"]').forEach((c) => c.addEventListener("change", () => {
+      if (c.checked) por(c); else lista.querySelector(`[data-id="${c.value}"]`)?.remove();
+      contar();
+    }));
+    lista.addEventListener("click", (e) => {
+      const tirar = e.target.closest(".cesta-tirar");
+      if (!tirar) return;
+      const li = tirar.closest("li");
+      const c = caixa(li.dataset.id);
+      if (c) c.checked = false;
+      li.remove();
+      contar();
+    });
+    contar();
+  })();
+</script>

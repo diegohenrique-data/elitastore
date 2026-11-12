@@ -1,0 +1,25 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Primeiro acesso · ElitaStore{% endblock %}
+{% block largura %}entrada{% endblock %}
+{% block recados %}{% endblock %}
+{% block rodape %}{% endblock %}
+{% block conteudo %}
+{% from "layout/_macros.html" import entrada with context %}
+{% call entrada() %}
+  <h2 class="entrada-titulo">Criar meu acesso</h2>
+  <p class="entrada-sub">Depois de criar, seu acesso fica esperando a Elita (dona da loja) liberar.</p>
+  <form method="post" action="/primeiro-acesso" class="cartao">
+    <label class="campo"><span>Seu nome</span>
+      <input type="text" name="nome" value="{{ nome|default('') }}" autocomplete="name" required></label>
+    <label class="campo"><span>Seu e-mail</span>
+      <input type="email" name="email" value="{{ email|default('') }}" autocomplete="username" required placeholder="seu@email.com"></label>
+    <label class="campo"><span>Crie uma senha</span>
+      <input type="password" name="senha" autocomplete="new-password" minlength="8" required>
+      <small>Pelo menos 8 letras ou números.</small></label>
+    <label class="campo"><span>Repita a senha</span>
+      <input type="password" name="senha2" autocomplete="new-password" minlength="8" required></label>
+    <button type="submit">CRIAR MEU ACESSO</button>
+  </form>
+  <p class="entrada-link">Já tem acesso? <a href="/entrar">Entrar</a></p>
+{% endcall %}
+{% endblock %}

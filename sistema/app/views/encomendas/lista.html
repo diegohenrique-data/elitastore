@@ -1,0 +1,31 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Encomendas" %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="acoes"><a class="botao" href="/encomendas/nova">➕ NOVA ENCOMENDA</a></div>
+
+{% macro cartao(e) %}
+<div class="cartao {% if e.etapa == 'chegou' %}de-hoje{% endif %}">
+  <p class="cartao-titulo">{{ e.descricao }}</p>
+  <p class="linha-info">👩 {{ (e.clientes or {}).nome }}</p>
+  {% if e.preco is not none %}<p class="linha-info">Preço {{ e.preco|reais }}{% if e.sinal|float > 0 %} · deu sinal de {{ e.sinal|reais }}{% endif %}</p>{% endif %}
+  {% if e.etapa == "pedido" %}
+  <form method="post" action="/encomendas/{{ e.id }}/chegou" class="acoes no-cartao">
+    <button type="submit">📦 CHEGOU</button></form>
+  {% elif e.etapa == "chegou" %}
+  <div class="acoes duas no-cartao">
+    <a class="botao claro" href="{{ e.link_avisar }}" target="_blank" rel="noopener">📲 AVISAR</a>
+    <a class="botao verde" href="{{ e.link_entregar }}">🛍️ ENTREGAR E ANOTAR A VENDA</a>
+  </div>
+  {% else %}
+  <p class="linha-info"><span class="etiqueta verde">✅ entregue {{ e.entregue_em|data_curta }}</span></p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+<h2 class="secao">📦 Chegaram (para entregar)</h2>
+{% for e in grupos.chegou %}{{ cartao(e) }}{% else %}<p class="vazio">Nada para entregar.</p>{% endfor %}
+<h2 class="secao">🕐 Pedidas</h2>
+{% for e in grupos.pedido %}{{ cartao(e) }}{% else %}<p class="vazio">Nenhuma encomenda pedida.</p>{% endfor %}
+<h2 class="secao">✅ Entregues</h2>
+{% for e in grupos.entregue %}{{ cartao(e) }}{% else %}<p class="vazio">Nenhuma entregue ainda.</p>{% endfor %}
+{% endblock %}

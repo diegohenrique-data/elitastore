@@ -1,0 +1,52 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% set voltar_para = ("/produtos/novo?dentro=" ~ atual.categoria_pai_id) if atual and atual.categoria_pai_id else ("/produtos/novo" if atual else "/produtos") %}
+{% with titulo="Novo produto", voltar=voltar_para %}{% include "layout/_topo.html" %}{% endwith %}
+
+<p class="passo">Passo 1 de 2 · Em qual categoria fica o produto?</p>
+
+{% if atual %}
+<div class="cartao em-dia">
+  <p style="margin:0">Você está em:</p>
+  <p class="caminho"><span class="cat-icone pequeno" aria-hidden="true">{{ atual.icone }}</span> {% for c in atual.caminho %}{% if not loop.first %} › {% endif %}{% if loop.last %}<strong>{{ c.nome }}</strong>{% else %}<a href="/produtos/novo?dentro={{ c.id }}">{{ c.nome }}</a>{% endif %}{% endfor %}</p>
+  <a class="botao verde" href="/produtos/novo/dados?categoria={{ atual.id }}">✅ COLOCAR O PRODUTO AQUI</a>
+</div>
+{% endif %}
+
+{% if filhas %}
+<h2 class="secao">{% if atual %}Ou escolha uma subcategoria de {{ atual.nome }}{% else %}Escolha a categoria{% endif %}</h2>
+<ul class="lista">
+  {% for c in filhas %}
+  <li><a class="item item-categoria" href="/produtos/novo?dentro={{ c.id }}"><span class="nome"><span class="cat-icone" aria-hidden="true">{{ c.icone }}</span>{{ c.nome }}</span><span class="valor" aria-hidden="true">›</span></a></li>
+  {% endfor %}
+</ul>
+{% elif not atual %}
+<p class="vazio">Ainda não tem nenhuma categoria. Crie a primeira aqui embaixo (ex.: Roupas, Perfumes, Pratas).</p>
+{% endif %}
+
+<form method="post" action="/categorias/nova" class="cartao">
+  <h2>➕ {% if atual %}Criar {{ "outra " if filhas }}subcategoria dentro de {{ atual.nome }}{% else %}Criar {{ "outra " if filhas }}categoria{% endif %}</h2>
+  <input type="hidden" name="pai_id" value="{{ atual.id if atual else '' }}">
+  <label class="campo"><span>Nome</span>
+    <input type="text" name="nome" required placeholder="{{ ('Ex.: Manga longa' if atual.categoria_pai_id else 'Ex.: Natura') if atual else 'Ex.: Perfumes' }}" autocomplete="off"></label>
+  <div class="campo"><span>Ícone (opcional)</span>
+    {% with valor="", automatico="", mandar="" %}{% include "layout/_escolher_emoji.html" %}{% endwith %}
+    <small>Os mesmos emojis do WhatsApp. Sem escolher, o sistema põe um sozinho pelo nome.</small></div>
+  <button type="submit" class="claro">CRIAR</button>
+</form>
+
+{% if atual %}
+{# Trocar ou tirar o ícone da categoria em que ela está (guarda na hora). #}
+<form method="post" action="/categorias/{{ atual.id }}/icone" class="cartao">
+  <h2>Ícone de {{ atual.nome }}</h2>
+  {% with valor=atual.icone_escolhido|default(""), automatico=atual.icone_auto|default(""), mandar="sim" %}{% include "layout/_escolher_emoji.html" %}{% endwith %}
+  <p class="sub">{% if atual.icone_escolhido %}Tirando o ícone, volta o automático ({{ atual.icone_auto }}).{% else %}Agora está o ícone automático. Escolha outro se quiser.{% endif %}</p>
+</form>
+{% endif %}
+
+{% if atual and s.e_dona %}
+<div class="acoes"><a class="botao claro perigo" href="/categorias/{{ atual.id }}/apagar">🗑️ APAGAR A CATEGORIA {{ atual.nome|upper }}</a></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/emojis.js?v={{ estilo_v }}" defer></script>{% endblock %}

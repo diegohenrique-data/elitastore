@@ -1,0 +1,69 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Mandar o que tenho", voltar=voltar %}{% include "layout/_topo.html" %}{% endwith %}
+<p class="passo">Passo 2 de 3 · Toque nos produtos que vão para a cliente</p>
+<form method="get" action="/mandar-o-que-tenho" id="marcar">
+  {% for k, v in filtro_campos.items() if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  {% if etiquetas %}
+  <div class="filtros-ativos">
+    {% for texto, sem in etiquetas %}<a class="etiqueta-filtro" href="{{ sem }}" aria-label="Tirar o filtro {{ texto }}">{{ texto }} ✕</a>{% endfor %}
+  </div>
+  {% endif %}
+  <div class="marcar-barra">
+    <span>{{ total }} {{ "produto" if total == 1 else "produtos" }}</span>
+    <button type="button" class="claro pequeno" id="marcar-todos">✔️ Marcar todos</button>
+  </div>
+  {% for categoria, itens in grupos.items() %}
+  <h2 class="secao">{{ categoria }}</h2>
+  <ul class="marcar-grade">
+    {% for p in itens %}
+    <li><label class="marcar-op">
+      <input type="checkbox" name="prod" value="{{ p.id }}"{% if p.id in marcados %} checked{% endif %}>
+      <span class="marcar-cartao">
+        <span class="marcar-foto">
+          {% if p.fotos %}<img src="{{ p.fotos[0] }}" alt="" loading="lazy" decoding="async">
+          {% else %}<span class="vitrine-sem-foto"><span aria-hidden="true">📷</span>Sem foto</span>{% endif %}
+          <span class="marcar-check" aria-hidden="true">✓</span>
+        </span>
+        <span class="marcar-texto"><span class="vitrine-nome">{{ p.nome }}</span><span class="vitrine-preco">{{ p.preco|reais }}</span></span>
+      </span>
+    </label></li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+  <p class="dica">Quer juntar produtos de outra categoria? Toque em <strong>ESCOLHER OUTROS PRODUTOS</strong>: os que você já escolheu continuam na cesta lá embaixo. Produto sem foto vai só no texto. No máximo {{ max_mandar }} de cada vez.</p>
+  <div class="acoes">
+    <button type="submit" name="passo" value="1" class="claro">➕ ESCOLHER OUTROS PRODUTOS</button>
+  </div>
+  {% include "produtos/_cesta.html" %}
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  // a categoria escolhida no filtro vira "a última usada" (a mesma memória da tela PRODUTOS)
+  try {
+    const usada = "{{ cat_principal }}", CHAVE = "elita:categorias-recentes";
+    if (usada) localStorage.setItem(CHAVE, JSON.stringify([usada, ...(JSON.parse(localStorage.getItem(CHAVE)) || []).filter((x) => x !== usada)].slice(0, 10)));
+  } catch (e) { /* sem memória: tudo bem */ }
+  // "Marcar todos" (vira "Desmarcar todos") e não deixa ir para o passo 3 sem nada na cesta.
+  (function () {
+    const form = document.getElementById("marcar");
+    const caixas = [...form.querySelectorAll('input[type="checkbox"][name="prod"]')];
+    const todos = document.getElementById("marcar-todos");
+    const rotulo = () => { todos.textContent = caixas.every((c) => c.checked) ? "✖️ Desmarcar todos" : "✔️ Marcar todos"; };
+    todos.addEventListener("click", () => {
+      const marcar = caixas.some((c) => !c.checked);
+      caixas.forEach((c) => { if (c.checked !== marcar) { c.checked = marcar; c.dispatchEvent(new Event("change")); } });
+      rotulo();
+    });
+    caixas.forEach((c) => c.addEventListener("change", rotulo));
+    form.addEventListener("submit", (e) => {
+      if (e.submitter && e.submitter.value === "3" && !document.querySelector("#cesta-lista li")) {
+        e.preventDefault();
+        document.getElementById("cesta-qtd").textContent = "⚠️ Toque em pelo menos um produto.";
+      }
+    });
+    rotulo();
+  })();
+</script>
+{% endblock %}

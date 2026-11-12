@@ -1,0 +1,21 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Dados da loja", voltar="/meu-dinheiro" %}{% include "layout/_topo.html" %}{% endwith %}
+<form method="post" action="/loja" class="cartao">
+  <label class="campo"><span>Nome da loja</span><input type="text" name="nome_loja" value="{{ cfg.nome_loja }}" required></label>
+  <label class="campo"><span>Minha chave Pix</span><input type="text" name="chave_pix" value="{{ cfg.chave_pix }}" placeholder="CPF, celular ou e-mail">
+    <small>Vai junto na mensagem de cobrança.</small></label>
+  <label class="campo"><span>Mensagem de cobrança</span><textarea name="msg_cobranca">{{ cfg.msg_cobranca }}</textarea>
+    <small>Onde está <strong>{nome}</strong> entra o nome da cliente; <strong>{valor}</strong>, quanto ela deve; <strong>{pix}</strong>, a sua chave Pix. Não apague as palavras com { }.</small></label>
+  <label class="campo"><span>Mensagem de encomenda que chegou</span><textarea name="msg_encomenda">{{ cfg.msg_encomenda }}</textarea>
+    <small>Onde está <strong>{nome}</strong> entra o nome da cliente. Não apague as palavras com { }.</small></label>
+  <label class="campo"><span>Avisar produto parado depois de quantos dias?</span>
+    <input type="number" name="dias_parado" value="{{ cfg.dias_parado }}" min="1" inputmode="numeric"></label>
+  <label class="campo"><span>Avisar validade quantos dias antes?</span>
+    <input type="number" name="dias_aviso_validade" value="{{ cfg.dias_aviso_validade }}" min="1" inputmode="numeric"></label>
+  <label class="campo"><span>Avisar "acabando" quando tiver só</span>
+    <input type="number" name="estoque_minimo_padrao" value="{{ cfg.estoque_minimo_padrao }}" min="0" inputmode="numeric"></label>
+  <button type="submit">GUARDAR</button>
+</form>
+{% endblock %}

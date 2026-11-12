@@ -1,0 +1,12 @@
+# Regras do Ruff (conferência do código Python) para o ElitaStore.
+# O VS Code usa este arquivo para mostrar avisos e para corrigir sozinho ao salvar.
+line-length = 120
+target-version = "py312"
+
+[lint]
+ignore = [
+    "BLE001",  # "except Exception" de propósito: no login/Supabase qualquer falha vira uma mensagem simples na tela
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["RUF012"]  # objetos de mentira dos testes podem ter listas/dicionários fixos

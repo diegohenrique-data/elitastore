@@ -1,0 +1,34 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Receber" %}{% include "layout/_topo.html" %}{% endwith %}
+
+{# Atrasados e Hoje: cada pessoa tem o botão 📲 COBRAR, que abre o WhatsApp dela com a mensagem pronta
+   (a de atraso fala desde quando). Tocar no nome abre a ficha. Os cards do INÍCIO chegam em #atrasados e #hoje. #}
+{% macro linha(c, classe, valor, texto, cobrar=False) %}
+<li class="{{ 'com-cobrar' if cobrar }}"><a class="item {{ classe }}" href="/clientes/{{ c.cliente_id }}?de=receber">
+  <span><span class="nome">{{ c.nome }}</span><br><span class="sub">{{ texto }}</span></span>
+  <span class="valor">{{ valor|reais }}</span></a>
+  {% if cobrar %}
+  {% if c.whatsapp %}
+  <a class="botao verde botao-cobrar" href="{{ c.link_cobrar }}" target="_blank" rel="noopener" aria-label="Cobrar {{ c.nome }} no WhatsApp">📲 COBRAR NO WHATSAPP</a>
+  {% else %}
+  <a class="botao claro botao-cobrar" href="/clientes/{{ c.cliente_id }}/editar">Sem WhatsApp: anotar o número</a>
+  {% endif %}
+  {% endif %}
+</li>
+{% endmacro %}
+
+<h2 class="secao" id="atrasados">🔴 Atrasados</h2>
+{% if atrasados %}<ul class="lista">{% for c in atrasados %}{{ linha(c, "atrasado", c.atrasado|float + c.hoje|float, "atrasado desde " ~ (c.proximo_vencimento|data_curta), cobrar=True) }}{% endfor %}</ul>
+{% else %}<p class="vazio">Ninguém atrasado. 😊</p>{% endif %}
+
+<h2 class="secao" id="hoje">🟡 Hoje</h2>
+{% if de_hoje %}<ul class="lista">{% for c in de_hoje %}{{ linha(c, "de-hoje", c.hoje, "paga hoje", cobrar=True) }}{% endfor %}</ul>
+{% else %}<p class="vazio">Ninguém para pagar hoje.</p>{% endif %}
+
+<h2 class="secao">🟢 Próximos dias</h2>
+{% if proximos %}<ul class="lista">{% for c in proximos %}{{ linha(c, "em-dia", c.falta_total, "próxima: " ~ (c.proximo_vencimento|data_curta)) }}{% endfor %}</ul>
+{% else %}<p class="vazio">Nenhum fiado em aberto.</p>{% endif %}
+
+<div class="acoes"><a class="botao claro" href="/clientes">👩 VER TODAS AS PESSOAS</a></div>
+{% endblock %}

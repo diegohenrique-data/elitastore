@@ -1,0 +1,104 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Custos e lucro", voltar="/meu-dinheiro" %}{% include "layout/_topo.html" %}{% endwith %}
+
+{# O LUCRO DO MÊS: só conta os produtos que têm custo anotado. #}
+<h2 class="secao">💰 Lucro de {{ mes }}</h2>
+<div class="numeros">
+  <div class="cartao numero"><p class="rotulo">🛍️ Vendi</p><p class="numero-grande sem-margem">{{ lucro.vendi|reais }}</p>
+    <p class="linha-info sub">dos produtos com custo anotado</p></div>
+  <div class="cartao numero"><p class="rotulo">📦 Esses produtos me custaram</p><p class="numero-grande sem-margem">{{ lucro.custo|reais }}</p></div>
+  <div class="cartao numero {{ 'em-dia' if lucro.lucro >= 0 else 'atrasado' }}"><p class="rotulo">💰 Lucro das vendas</p>
+    <p class="numero-grande sem-margem">{{ lucro.lucro|reais }}</p>
+    {% if lucro.vendi > 0 %}<p class="linha-info">{{ lucro.pct }}% do que vendi</p>{% endif %}</div>
+  <div class="cartao numero"><p class="rotulo">⬆️ Gastei este mês</p><p class="numero-grande sem-margem">{{ lucro.gastei|reais }}</p></div>
+  <div class="cartao numero {{ 'em-dia' if lucro.sobrou >= 0 else 'atrasado' }}"><p class="rotulo">✅ Sobrou (lucro menos gastos)</p>
+    <p class="numero-grande sem-margem">{{ lucro.sobrou|reais }}</p></div>
+</div>
+{% if lucro.sem_custo > 0 %}
+<p class="aviso">⚠️ {{ lucro.sem_custo|reais }} das vendas deste mês são de produtos <strong>sem custo anotado</strong> e ficaram fora da conta do lucro.</p>
+{% endif %}
+
+{# CADA PRODUTO: quanto custou, quanto já entrou e se já se pagou. #}
+<h2 class="secao">📦 Cada produto: já se pagou?</h2>
+{% if produtos %}
+<p class="sub">Lucro de tudo o que já vendi destes produtos: <strong>{{ lucro_total|reais }}</strong></p>
+<input type="search" id="busca-custos" placeholder="Buscar produto" aria-label="Buscar produto pelo nome" autocomplete="off">
+<div class="segmentos-custos" role="group" aria-label="Mostrar">
+  <button type="button" class="claro pequeno" data-ver="" aria-pressed="true">Todos ({{ produtos|length }})</button>
+  <button type="button" class="claro pequeno" data-ver="falta" aria-pressed="false">⏳ Ainda não ({{ qtd.falta }})</button>
+  <button type="button" class="claro pequeno" data-ver="pagou" aria-pressed="false">✅ Já se pagaram ({{ qtd.pagou }})</button>
+  {% if qtd.servico %}<button type="button" class="claro pequeno" data-ver="servico" aria-pressed="false">✂️ Serviços ({{ qtd.servico }})</button>{% endif %}
+</div>
+<ul class="lista custos-lista" id="lista-custos">
+  {% for p in produtos %}
+  <li class="cartao custo-item" data-grupo="{{ p.grupo }}" data-busca="{{ p.nome }}">
+    <a class="custo-nome" href="/produtos/{{ p.id }}">{{ p.nome }}</a>
+    <p class="linha-info">Custo {{ p.custo|reais }} · Vendo por {{ p.preco|reais }}</p>
+    <p class="linha-info {{ 'texto-verde' if p.lucro_cada >= 0 else 'texto-vermelho' }}">
+      {% if p.lucro_cada >= 0 %}💰 Lucro de cada {{ "vez" if p.servico else "um" }}: <strong>{{ p.lucro_cada|reais }}</strong> ({{ p.pct }}%)
+      {% else %}⚠️ Prejuízo de cada {{ "vez" if p.servico else "um" }}: <strong>{{ (-p.lucro_cada)|reais }}</strong>. O preço está menor que o custo.{% endif %}</p>
+    {% if p.servico %}
+    <p class="linha-info">✂️ Vendi {{ p.vendi }} {{ "vez" if p.vendi == 1 else "vezes" }} · entrou {{ p.entrou|reais }}</p>
+    <p class="custo-situacao pagou">Lucro até agora: {{ p.lucro_ate_agora|reais }}</p>
+    {% else %}
+    <p class="linha-info">Comprei {{ p.comprei }} = {{ p.investi|reais }} · Vendi {{ p.vendi }} = entrou {{ p.entrou|reais }}</p>
+    <div class="barra-pagou" role="img" aria-label="Já voltou {{ p.andamento }}% do que custou"><span style="width: {{ p.andamento }}%"></span></div>
+    {% if p.se_pagou %}
+    <p class="custo-situacao pagou">✅ Já se pagou! Lucro até agora: {{ p.lucro_ate_agora|reais }}</p>
+    {% elif p.investi <= 0 %}
+    <p class="custo-situacao">Sem estoque e sem vendas ainda.</p>
+    {% else %}
+    <p class="custo-situacao falta">⏳ Falta entrar {{ p.falta|reais }} para se pagar{% if p.faltam_vendas %} (mais {{ p.faltam_vendas }} {{ "venda" if p.faltam_vendas == 1 else "vendas" }}){% endif %}</p>
+    {% endif %}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+<p class="vazio oculto" id="nenhum-custo">Nenhum produto aqui.</p>
+{% else %}
+<p class="vazio">Nenhum produto com custo anotado ainda. Abra o produto em PRODUTOS e escreva <strong>Quanto paguei (custo)</strong>.</p>
+{% endif %}
+
+{% if sem_custo %}
+<h2 class="secao">📝 Sem custo anotado ({{ sem_custo|length }})</h2>
+<p class="sub">Sem o custo, o sistema não sabe o lucro deles. Toque no produto e escreva quanto pagou.</p>
+<ul class="lista">
+  {% for p in sem_custo %}
+  <li><a class="item" href="/produtos/{{ p.id }}"><span><span class="nome">{{ p.nome }}</span><br>
+    <span class="sub">{{ "✂️ serviço" if p.servico else "tenho " ~ p.quantidade }} · vendo por {{ p.preco|reais }}</span></span>
+    <span class="valor">✏️ Anotar</span></a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+<p class="dica">A conta usa o custo que está anotado hoje em cada produto. "Comprei" é o que já vendi mais o que ainda tenho no estoque.</p>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Mostrar todos, só os que ainda não se pagaram, só os que já se pagaram ou só os serviços (e buscar pelo nome).
+  (function () {
+    const lista = document.getElementById("lista-custos");
+    if (!lista) return;
+    const busca = document.getElementById("busca-custos");
+    const botoes = [...document.querySelectorAll("[data-ver]")];
+    let ver = "";
+    const semAcento = (t) => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    function filtrar() {
+      const termo = semAcento(busca.value);
+      let mostrando = 0;
+      lista.querySelectorAll(".custo-item").forEach((li) => {
+        const aparece = (!ver || li.dataset.grupo === ver) && (!termo || semAcento(li.dataset.busca).includes(termo));
+        li.classList.toggle("oculto", !aparece);
+        if (aparece) mostrando++;
+      });
+      document.getElementById("nenhum-custo").classList.toggle("oculto", mostrando > 0);
+    }
+    botoes.forEach((b) => b.addEventListener("click", () => {
+      ver = b.dataset.ver;
+      botoes.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      filtrar();
+    }));
+    busca.addEventListener("input", filtrar);
+  })();
+</script>
+{% endblock %}

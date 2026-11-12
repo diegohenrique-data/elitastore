@@ -1,0 +1,15 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Ajustar valor", voltar="/clientes/" ~ c.id %}{% include "layout/_topo.html" %}{% endwith %}
+<form method="post" action="/clientes/{{ c.id }}/ajustar" class="cartao">
+  <p class="rotulo">{{ c.nome }} me deve hoje</p>
+  <p class="numero-grande antes-do-campo">{{ falta|reais }}</p>
+  <label class="campo"><span>Quanto ela fica devendo agora?</span>
+    <input type="text" name="novo_valor" inputmode="decimal" placeholder="Ex.: 40,00" required>
+    <small>Pode aumentar (acréscimo pelo atraso) ou diminuir (desconto).</small></label>
+  <label class="campo"><span>Por quê? (opcional)</span>
+    <input type="text" name="motivo" placeholder="Ex.: atrasou 2 meses"></label>
+  <button type="submit">✅ MUDAR PARA ESSE VALOR</button>
+</form>
+{% endblock %}

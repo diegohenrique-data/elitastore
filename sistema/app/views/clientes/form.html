@@ -1,0 +1,61 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo=("Mudar dados" if c.id else "Nova pessoa"), voltar=(volta or ("/clientes/" ~ c.id if c.id else "/clientes")) %}{% include "layout/_topo.html" %}{% endwith %}
+{% set sem_cep = c.sem_cep if c.sem_cep is defined else (c.id and not c.cep) %}
+<form method="post" action="{{ '/clientes/' ~ c.id ~ '/editar' if c.id else '/clientes/nova' }}" class="cartao">
+  <input type="hidden" name="volta" value="{{ volta }}">
+  <label class="campo"><span>Nome</span>
+    <input type="text" name="nome" value="{{ c.nome|default('') }}" required autocomplete="off"></label>
+  <label class="campo"><span>WhatsApp</span>
+    <input type="tel" name="whatsapp" value="{{ c.whatsapp|default('') }}" placeholder="(11) 99999-9999" inputmode="tel"></label>
+  <div id="bloco-cep"{% if sem_cep %} class="oculto"{% endif %}>
+    <label class="campo"><span>CEP</span>
+      <input type="text" name="cep" id="cep" value="{{ c.cep|default('') }}" placeholder="00000-000" inputmode="numeric" maxlength="9" autocomplete="off" {% if not sem_cep %}required{% endif %}>
+      <small id="cep-resultado" role="status">Para saber onde ir cobrar, se não conseguir falar com a pessoa.</small></label>
+    <label class="campo"><span>Número</span>
+      <input type="text" name="numero" id="numero" value="{{ c.numero|default('') }}" placeholder="Ex.: 123 ou S/N" autocomplete="off" {% if not sem_cep %}required{% endif %}></label>
+  </div>
+  <label class="sem-cep"><input type="checkbox" name="sem_cep" id="sem-cep" value="1"{% if sem_cep %} checked{% endif %}> A pessoa não tem CEP</label>
+  <label class="campo{% if not sem_cep %} oculto{% endif %}" id="bloco-endereco"><span>Endereço</span>
+    <textarea name="endereco" id="endereco" placeholder="Rua, número, bairro, ponto de referência"{% if not sem_cep %} disabled{% endif %}>{{ c.endereco|default('') if sem_cep else '' }}</textarea></label>
+  <label class="campo"><span>Observações</span>
+    <textarea name="observacoes">{{ c.observacoes|default('') }}</textarea></label>
+  <button type="submit">GUARDAR</button>
+</form>
+{% endblock %}
+{% block scripts %}<script>
+  // CEP: mostra a rua assim que tem os 8 números. O endereço escrito só aparece para quem não tem CEP.
+  (function () {
+    const cep = document.getElementById("cep"), numero = document.getElementById("numero");
+    const resultado = document.getElementById("cep-resultado");
+    const semCep = document.getElementById("sem-cep"), endereco = document.getElementById("endereco");
+    let pedido = 0;
+
+    function trocar() {
+      const sem = semCep.checked;
+      document.getElementById("bloco-cep").classList.toggle("oculto", sem);
+      document.getElementById("bloco-endereco").classList.toggle("oculto", !sem);
+      cep.required = numero.required = !sem;
+      endereco.disabled = !sem;
+    }
+
+    async function buscar() {
+      const digitos = cep.value.replace(/\D/g, "").slice(0, 8);
+      cep.value = digitos.length > 5 ? `${digitos.slice(0, 5)}-${digitos.slice(5)}` : digitos;
+      const este = ++pedido;
+      if (digitos.length < 8) { resultado.textContent = "Escreva os 8 números do CEP."; return; }
+      resultado.textContent = "Buscando o endereço...";
+      let dados = {};
+      try { dados = await (await fetch(`/cep/${digitos}`)).json(); } catch (e) { dados = { fora_do_ar: true }; }
+      if (este !== pedido) return;  // digitaram outro CEP enquanto buscava
+      if (dados.endereco) resultado.textContent = `📍 ${dados.endereco}`;
+      else if (dados.nao_achou) resultado.textContent = "⚠️ Não achei esse CEP. Confira os números.";
+      else resultado.textContent = "⚠️ Não consegui buscar agora. Ao guardar, tento de novo.";
+    }
+
+    semCep.addEventListener("change", trocar);
+    cep.addEventListener("input", buscar);
+    if (cep.value) buscar();
+  })();
+</script>{% endblock %}

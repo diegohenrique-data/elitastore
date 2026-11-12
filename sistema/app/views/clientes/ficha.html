@@ -1,0 +1,164 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{# VOLTAR: para o Receber se veio de lá; senão, para Pessoas #}
+{% with titulo=c.nome, voltar=("/receber" if request.query_params.get("de") == "receber" else "/clientes") %}{% include "layout/_topo.html" %}{% endwith %}
+{% if c.ativo == false %}
+<div class="cartao aviso">
+  <p class="sem-margem">🚫 <strong>{{ c.nome }}</strong> foi excluída da sua lista de pessoas. As compras dela continuam guardadas.</p>
+  {% if s.e_dona %}
+  <form method="post" action="/clientes/{{ c.id }}/voltar-para-lista"><button type="submit" class="claro botao-no-cartao">↩️ TRAZER DE VOLTA PARA A LISTA</button></form>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="cartao {% if saldo.atrasado|float > 0 %}atrasado{% elif saldo.hoje|float > 0 %}de-hoje{% else %}em-dia{% endif %}">
+  {% if saldo.falta_total|float > 0 %}
+    <p class="rotulo">Me deve</p>
+    <p class="numero-grande sem-margem">{{ saldo.falta_total|reais }}</p>
+    {% if saldo.atrasado|float > 0 %}<p class="linha-info">🔴 Atrasado: <strong>{{ saldo.atrasado|reais }}</strong></p>{% endif %}
+    {% if saldo.hoje|float > 0 %}<p class="linha-info">🟡 Para hoje: <strong>{{ saldo.hoje|reais }}</strong></p>{% endif %}
+  {% else %}
+    <p class="numero-grande sem-margem">✅ Não deve nada</p>
+  {% endif %}
+</div>
+
+<form method="post" action="/clientes/{{ c.id }}/pagou" class="cartao" id="form-pagou">
+  <h2>✅ ELA PAGOU</h2>
+  <div id="pagou-um-jeito">
+    <label class="campo"><span>Quanto ela pagou?</span>
+      <input type="text" name="valor" inputmode="decimal" placeholder="Ex.: 50,00" required></label>
+    <fieldset class="escolhas">
+      <legend>Como pagou?</legend>
+      <label><input type="radio" name="forma" value="dinheiro" checked><span>💵 Dinheiro</span></label>
+      <label><input type="radio" name="forma" value="pix"><span>📱 Pix</span></label>
+      <label><input type="radio" name="forma" value="cartao"><span>💳 Cartão</span></label>
+    </fieldset>
+  </div>
+  {# PAGOU DE MAIS DE UM JEITO: ex. R$ 20 em dinheiro + R$ 30 no Pix (cada forma vira um pagamento) #}
+  <div id="pagou-varios" class="oculto">
+    <p class="desconto-rotulo">Quanto ela pagou em cada forma?</p>
+    {% for f, nome in FORMAS_PARTES.items() %}
+    <label class="campo parte-linha"><span>{{ nome }}</span>
+      <span class="campo-reais"><input type="text" name="parte_{{ f }}" inputmode="decimal" placeholder="0,00" autocomplete="off" disabled></span></label>
+    {% endfor %}
+    <p class="parte-conta certo oculto" id="pagou-soma" aria-live="polite"></p>
+  </div>
+  <input type="hidden" name="dividir" id="pagou-dividir" value="">
+  <button type="button" class="link-desconto botao-alternar" id="pagou-alternar" aria-expanded="false">🔀 Pagou de mais de um jeito? (ex.: dinheiro + Pix)</button>
+  <button type="submit" class="verde">✅ ELA PAGOU</button>
+</form>
+
+<div class="acoes duas">
+  {# COBRAR só quando ela deve; sem WhatsApp, leva para anotar o número (igual ao Receber) #}
+  {% if saldo.falta_total|float > 0 %}
+  {% if c.whatsapp %}<a class="botao claro" href="{{ link_cobrar }}" target="_blank" rel="noopener">📲 COBRAR</a>
+  {% else %}<a class="botao claro" href="/clientes/{{ c.id }}/editar">📲 Sem WhatsApp: anotar</a>{% endif %}
+  {% endif %}
+  <a class="botao claro" href="/clientes/{{ c.id }}/mudar-data">📅 MUDAR DATA</a>
+  {% if s.e_dona %}<a class="botao claro" href="/clientes/{{ c.id }}/ajustar">✏️ AJUSTAR VALOR</a>{% endif %}
+  {% if s.e_dona and saldo.falta_total|float > 0 %}<a class="botao claro" href="/clientes/{{ c.id }}/reparcelar">🔁 REPARCELAR</a>{% endif %}
+  <a class="botao claro" href="/vender?cliente={{ c.id }}">🛍️ VENDER</a>
+</div>
+
+<div class="cartao">
+  <h2>📍 Endereço</h2>
+  <p class="sem-margem texto-quebrado">{{ c.endereco or "Sem endereço anotado." }}</p>
+  {% if c.whatsapp %}<p class="linha-info">📞 {{ c.whatsapp }}</p>{% endif %}
+  {% if c.observacoes %}<p class="linha-info texto-quebrado">📝 {{ c.observacoes }}</p>{% endif %}
+  <a class="botao claro botao-no-cartao" href="/clientes/{{ c.id }}/editar">✏️ MUDAR DADOS DA PESSOA</a>
+  {% if s.e_dona and c.ativo != false %}<a class="botao claro perigo botao-no-cartao" href="/clientes/{{ c.id }}/excluir">🗑️ EXCLUIR DA MINHA LISTA</a>{% endif %}
+</div>
+
+{# HISTÓRICO DE COMPRAS: tudo o que ela já comprou, da mais nova para a mais antiga.
+   "Anotar compra antiga" põe no histórico uma compra de antes do sistema. #}
+<section class="cartao" id="compras" aria-labelledby="titulo-compras">
+  <div class="secao-com-chip">
+    <h2 id="titulo-compras" class="sem-margem">🛍️ Histórico de compras</h2>
+    {% if compras %}<span class="chip">{{ compras|length }} {{ "compra" if compras|length == 1 else "compras" }}{% if s.e_dona %} · {{ total_compras|reais }}{% endif %}</span>{% endif %}
+  </div>
+  {% if compras %}
+  <ul class="lista linha-info">
+    {% for v in compras %}
+    <li><a class="item" href="/vender/feita/{{ v.id }}">
+      <span><span class="nome">{{ u.data_com_ano(v.data) }}{% if v.antiga %} <span class="etiqueta">📜 antiga</span>{% endif %}</span><br>
+        <span class="sub">{{ v.itens_texto }} · {{ FORMAS[v.forma_pagamento] }}{% if v.forma_pagamento == "fiado" and v.vezes %} {{ v.vezes }}x{% endif %}</span></span>
+      <span class="valor">{{ v.total|reais }}</span>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="sub linha-info">Ela ainda não comprou nada pelo sistema.</p>
+  {% endif %}
+  <a class="botao claro botao-no-cartao" href="/clientes/{{ c.id }}/compra-antiga">📜 ANOTAR COMPRA ANTIGA</a>
+</section>
+
+{% if abertas %}
+<h2 class="secao">Parcelas que faltam</h2>
+<ul class="lista">
+  {% for p in abertas %}
+  <li class="item {% if p.situacao == 'atrasada' %}atrasado{% elif p.situacao == 'hoje' %}de-hoje{% endif %}">
+    <span><span class="nome">{{ p.vencimento|data_curta }}</span><br>
+      <span class="sub">{% if p.situacao == 'atrasada' %}🔴 atrasada{% elif p.situacao == 'hoje' %}🟡 hoje{% else %}🟢 em dia{% endif %}{% if p.pago|float > 0 %} · já pagou {{ p.pago|reais }}{% endif %}</span></span>
+    <span class="valor">{{ p.falta|reais }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if pagamentos %}
+<h2 class="secao">Pagamentos recebidos</h2>
+<ul class="lista">
+  {% for pg in pagamentos %}
+  <li class="item"><span><span class="nome">{{ pg.pago_em|data_curta }}</span><br><span class="sub">{{ FORMAS[pg.forma] }}</span></span>
+    <span class="valor-e-apagar"><span class="valor">{{ pg.valor|reais }}</span>{% if s.e_dona %}
+      <form method="post" action="/pagamentos/{{ pg.id }}/apagar" data-confirmar="Apagar este pagamento de {{ pg.valor|reais }}? O valor volta a faltar no fiado."><input type="hidden" name="volta" value="/clientes/{{ c.id }}"><button type="submit" class="claro pequeno perigo" aria-label="Apagar o pagamento de {{ pg.valor|reais }}">🗑️</button></form>{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if ajustes %}
+<h2 class="secao">Mudanças feitas</h2>
+<ul class="lista">
+  {% for a in ajustes %}
+  <li class="item"><span><span class="nome">{{ {"valor": "Valor", "data": "Data", "vezes": "Reparcelado"}.get(a.tipo, "Mudança") }}: {{ a.antes }} → {{ a.depois }}</span><br>
+    <span class="sub">{{ a.feito_em|data_curta }}{% if a.motivo %} · {{ a.motivo }}{% endif %}</span></span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+  // ELA PAGOU de mais de um jeito: troca o valor único pelos campos de cada forma (e soma na hora).
+  (function () {
+    const botao = document.getElementById("pagou-alternar");
+    if (!botao) return;
+    const um = document.getElementById("pagou-um-jeito"), varios = document.getElementById("pagou-varios");
+    const soma = document.getElementById("pagou-soma");
+    const ler = (t) => { t = String(t || "").replace("R$", "").trim(); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return parseFloat(t) || 0; };
+    const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    botao.addEventListener("click", () => {
+      const abrir = varios.classList.contains("oculto");
+      varios.classList.toggle("oculto", !abrir); um.classList.toggle("oculto", abrir);
+      um.querySelectorAll("input").forEach((i) => { i.disabled = abrir; });
+      varios.querySelectorAll("input").forEach((i) => { i.disabled = !abrir; });
+      document.getElementById("pagou-dividir").value = abrir ? "1" : "";
+      botao.textContent = abrir ? "↩️ Pagou de um jeito só" : "🔀 Pagou de mais de um jeito? (ex.: dinheiro + Pix)";
+      botao.setAttribute("aria-expanded", String(abrir));
+      if (abrir) varios.querySelector("input").focus();
+    });
+    varios.addEventListener("input", () => {
+      const total = [...varios.querySelectorAll("input")].reduce((s, i) => s + ler(i.value), 0);
+      soma.classList.toggle("oculto", !(total > 0));
+      soma.textContent = `Total que ela pagou: ${reais(total)}`;
+    });
+  })();
+  // Abriu a ficha = mexeu nesta pessoa: ela vai para as "últimas pessoas" da aba PESSOAS (neste aparelho).
+  try {
+    const abertas = JSON.parse(localStorage.getItem("elita:pessoas-abertas")) || {};
+    abertas["{{ c.id }}"] = new Date().toISOString();
+    const ultimas = Object.entries(abertas).sort((a, b) => (b[1] > a[1] ? 1 : -1)).slice(0, 50);  // não cresce sem parar
+    localStorage.setItem("elita:pessoas-abertas", JSON.stringify(Object.fromEntries(ultimas)));
+  } catch (e) { /* sem memória no aparelho: vale só o que está no banco */ }
+</script>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "layout/base.html" %}
+{% block titulo %}Entrar · ElitaStore{% endblock %}
+{% block largura %}entrada{% endblock %}
+{% block recados %}{% endblock %}
+{% block rodape %}{% endblock %}
+{% block conteudo %}
+{% from "layout/_macros.html" import entrada with context %}
+{% call entrada() %}
+  <h2 class="entrada-titulo">Que bom te ver! 👋</h2>
+  <p class="entrada-sub">Entre com seu e-mail e sua senha.</p>
+  <form method="post" action="/entrar" class="cartao">
+    <label class="campo"><span>Seu e-mail</span>
+      <input type="email" name="email" value="{{ email|default('') }}" autocomplete="username" required placeholder="seu@email.com"></label>
+    <div class="campo"><label for="senha" class="campo-nome">Sua senha</label>
+      <div class="campo-senha">
+        <input type="password" name="senha" id="senha" autocomplete="current-password" required>
+        <button type="button" class="ver-senha" id="ver-senha" aria-label="Mostrar a senha" aria-pressed="false">👁️</button>
+      </div></div>
+    <button type="submit">ENTRAR</button>
+  </form>
+  <p class="entrada-link">Primeira vez aqui? <a href="/primeiro-acesso">Criar meu acesso</a></p>
+  <p class="entrada-link">Esqueceu a senha? Peça para a Elita (ou o Tiago) criar uma nova para você.</p>
+{% endcall %}
+{% endblock %}
+{% block scripts %}<script>
+  // O olhinho: mostra ou esconde a senha, para conferir o que foi digitado.
+  (function () {
+    const senha = document.getElementById("senha"), olho = document.getElementById("ver-senha");
+    olho.addEventListener("click", () => {
+      const mostrar = senha.type === "password";
+      senha.type = mostrar ? "text" : "password";
+      olho.textContent = mostrar ? "🙈" : "👁️";
+      olho.setAttribute("aria-label", mostrar ? "Esconder a senha" : "Mostrar a senha");
+      olho.setAttribute("aria-pressed", String(mostrar));
+      senha.focus();
+    });
+  })();
+</script>{% endblock %}

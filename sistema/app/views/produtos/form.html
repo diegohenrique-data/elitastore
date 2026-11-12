@@ -1,0 +1,192 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo=("Mudar produto" if p.id else "Novo produto"), voltar=("/produtos" if p.id else "/produtos/novo?dentro=" ~ categoria.id) %}{% include "layout/_topo.html" %}{% endwith %}
+{% if not p.id %}<p class="passo">Passo 2 de 2 · Dados do produto</p>{% endif %}
+{% if p.id %}
+{# FOTOS do produto já cadastrado: ver, escolher a principal, apagar (só a dona) e pôr mais. #}
+{% set fotos = p.fotos|default([]) %}
+<section class="cartao fotos-produto" id="fotos" aria-labelledby="titulo-fotos">
+  <h2 id="titulo-fotos">📸 Fotos <small>{{ fotos|length }} de {{ max_fotos }}</small></h2>
+  {% if fotos %}
+  <div class="fotos-grade">
+    {% for f in fotos %}
+    <figure class="foto-quadro">
+      {% if f.url %}<img src="{{ f.url }}" alt="Foto {{ loop.index }} de {{ p.nome }}" loading="lazy">{% else %}<span class="foto-sem" aria-hidden="true">🖼️</span>{% endif %}
+      {% if loop.first %}<span class="foto-selo">⭐ Principal</span>{% endif %}
+      <figcaption>
+        {% if not loop.first %}
+        <form method="post" action="/produtos/{{ p.id }}/fotos/{{ f.id }}/principal"><button type="submit" class="claro pequeno">⭐ Pôr como principal</button></form>
+        {% endif %}
+        {% if s.e_dona %}
+        <form method="post" action="/produtos/{{ p.id }}/fotos/{{ f.id }}/apagar" data-confirmar="Apagar esta foto?"><button type="submit" class="claro pequeno perigo" aria-label="Apagar a foto {{ loop.index }}">🗑️ Apagar</button></form>
+        {% endif %}
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="sub">Este produto ainda não tem foto. A primeira vira a foto da vitrine.</p>
+  {% endif %}
+  {% if fotos|length < max_fotos %}
+  <form method="post" action="/produtos/{{ p.id }}/fotos" enctype="multipart/form-data">
+    {% with livres=max_fotos - fotos|length, mandar="sim", tem_principal=("sim" if fotos else "") %}{% include "produtos/_fotos_escolher.html" %}{% endwith %}
+    <noscript><button type="submit">GUARDAR FOTO</button></noscript>
+  </form>
+  {% else %}
+  <p class="sub">Já tem {{ max_fotos }} fotos (o máximo). Para trocar, apague uma.</p>
+  {% endif %}
+</section>
+{% endif %}
+<form method="post" action="/produtos/salvar" class="cartao" enctype="multipart/form-data">
+  <input type="hidden" name="pid" value="{{ p.id|default('') }}">
+  {% if p.id %}
+  <label class="campo"><span>Categoria</span>
+    <select name="categoria_id" required>
+      {% for c in cats %}<option value="{{ c.id }}" {% if c.id == p.categoria_id %}selected{% endif %}>{{ c.nome_completo }}</option>{% endfor %}
+    </select></label>
+  {% else %}
+  <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+  <div class="campo"><span style="display:block;font-weight:700;margin-bottom:6px">Categoria</span>
+    <p class="caminho sem-margem"><span class="cat-icone pequeno" aria-hidden="true">{{ categoria.icone }}</span> {{ categoria.nome_completo }} · <a href="/produtos/novo?dentro={{ categoria.id }}">trocar</a></p></div>
+  {% endif %}
+  {% if not p.id %}
+  <div class="campo"><span class="campo-titulo">📸 Fotos (opcional, até {{ max_fotos }})</span>
+    {% with livres=max_fotos, mandar="", tem_principal="" %}{% include "produtos/_fotos_escolher.html" %}{% endwith %}
+    <small>A foto fica quadrada e do tamanho certo sozinha. Dá para pôr depois também.</small></div>
+  {% endif %}
+  {% set e_servico = p.servico if p.id else servico_padrao %}
+  <fieldset class="escolhas duas" id="tipo-produto">
+    <legend>O que é?</legend>
+    <label><input type="radio" name="servico" value="" {% if not e_servico %}checked{% endif %}><span>📦 Produto<small>tem estoque</small></span></label>
+    <label><input type="radio" name="servico" value="1" {% if e_servico %}checked{% endif %}><span>✂️ Serviço<small>escova, unha...</small></span></label>
+  </fieldset>
+  <p class="sub oculto" id="dica-servico">✂️ Serviço não tem estoque: dá para vender quantas vezes quiser. Escreva só quanto cobra{% if s.e_dona %} e qual é o seu custo{% endif %}.</p>
+  <label class="campo"><span>Nome</span>
+    <input type="text" name="nome" value="{{ p.nome|default('') }}" required placeholder="Ex.: Perfume Lattafa 100ml" data-exemplo-produto="Ex.: Perfume Lattafa 100ml" data-exemplo-servico="Ex.: Escova progressiva"></label>
+  <label class="campo"><span data-produto="Preço de venda" data-servico="Quanto cobro">Preço de venda</span>
+    <input type="text" name="preco" id="preco-venda" value="{{ (p.preco|string).replace('.', ',') if p.preco is defined else '' }}" inputmode="decimal" required placeholder="Ex.: 89,90">
+    <small>Para liquidação, é só mudar o preço aqui.</small></label>
+  {% if s.e_dona %}
+  {# CUSTO e PORCENTAGEM QUE GANHO, os dois juntos: escreveu um, o outro se preenche sozinho
+     (a % é do preço de venda: R$ 100 com 30% = custo R$ 70). Só a Elita vê. #}
+  <div class="duas-colunas custo-e-ganho">
+    <label class="campo" id="campo-custo"><span data-produto="Quanto paguei (custo)" data-servico="Qual é o meu custo?">Quanto paguei (custo)</span>
+      <span class="campo-reais"><input type="text" name="custo" id="custo" value="{{ (p.custo|string).replace('.', ',') if p.custo is not none and p.custo is defined else '' }}" inputmode="decimal" placeholder="70,00" autocomplete="off"></span></label>
+    <label class="campo" id="campo-ganho"><span>Quanto eu ganho (%)</span>
+      <span class="campo-pct"><input type="text" name="ganho_pct" id="ganho-pct" value="{{ p.ganho_pct|default('') }}" inputmode="decimal" placeholder="30" autocomplete="off"></span></label>
+  </div>
+  <p class="sub custo-dica">Escreva o custo <strong>ou</strong> a porcentagem: o outro aparece sozinho. Só você vê estes valores.</p>
+  <p class="lucro oculto" id="lucro" aria-live="polite"></p>
+  {% endif %}
+  <div id="campos-estoque">
+  <label class="campo"><span>Quantos tenho</span>
+    <input type="number" name="quantidade" value="{{ p.quantidade|default(0) }}" min="0" inputmode="numeric"></label>
+  {% if p.id %}
+  <label class="campo"><span>Chegou mais? Quantos?</span>
+    <input type="number" name="somar" min="0" inputmode="numeric" placeholder="0">
+    <small>Soma ao que já tem.</small></label>
+  {% endif %}
+
+
+  <label class="campo"><span>Avisar quando tiver só (opcional)</span>
+    <input type="number" name="estoque_minimo" value="{{ p.estoque_minimo if p.estoque_minimo is not none and p.estoque_minimo is defined else '' }}" min="0" inputmode="numeric" placeholder="Ex.: 3"></label>
+  <label class="campo"><span>Validade (opcional)</span>
+    {% set hoje_iso = u.hoje().isoformat() %}
+    <input type="date" name="validade" value="{{ p.validade or '' }}" min="{{ p.validade if p.validade and p.validade < hoje_iso else hoje_iso }}">
+    <small>Hoje ou uma data futura.</small></label>
+  <label class="campo"><span>Código de barras (opcional)</span>
+    <input type="text" name="codigo_barras" id="codigo-barras" value="{{ p.codigo_barras or '' }}" autocomplete="off" placeholder="Toque aqui e passe o leitor">
+    <small id="codigo-dica">Toque no botão abaixo e aponte a câmera para o código de barras do produto. Depois, em VENDER, é só ler o código.</small></label>
+  <button type="button" class="claro botao-camera junto-do-campo so-camera" id="ler-camera">📷 LER CÓDIGO DE BARRAS</button>
+  </div>
+  <button type="submit" id="guardar-produto">GUARDAR {{ "SERVIÇO" if e_servico else "PRODUTO" }}</button>
+</form>
+{% if p.id %}
+<div class="acoes">
+  <a class="botao claro" href="/mandar-o-que-tenho?prod={{ p.id }}">📲 MANDAR NO WHATSAPP</a>
+  {% if s.e_dona %}<a class="botao claro perigo" href="/produtos/{{ p.id }}/apagar">🗑️ APAGAR ESTE PRODUTO</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/fotos.js?v={{ estilo_v }}" defer></script>
+<script src="/static/camera.js?v={{ estilo_v }}"></script>
+<script>
+  // PRODUTO ou SERVIÇO: serviço não tem estoque, validade nem código de barras (os campos somem).
+  // O lucro (preço - custo) aparece na hora para a Elita.
+  (function () {
+    const form = document.querySelector('form[action="/produtos/salvar"]');
+    const estoque = document.getElementById("campos-estoque");
+    const lucro = document.getElementById("lucro");
+    const custo = document.getElementById("custo");
+    const preco = document.getElementById("preco-venda");
+    const ler = (t) => { t = String(t || "").replace("R$", "").replace("%", "").trim(); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return parseFloat(t); };
+    const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    function mostrarTipo() {
+      const servico = form.querySelector('input[name="servico"]:checked').value === "1";
+      estoque.classList.toggle("oculto", servico);
+      estoque.querySelectorAll("input").forEach((i) => { i.disabled = servico; });
+      document.getElementById("dica-servico").classList.toggle("oculto", !servico);
+      form.querySelectorAll("[data-produto]").forEach((el) => { el.textContent = servico ? el.dataset.servico : el.dataset.produto; });
+      const nome = form.querySelector('input[name="nome"]');
+      nome.placeholder = servico ? nome.dataset.exemploServico : nome.dataset.exemploProduto;
+      document.getElementById("guardar-produto").textContent = servico ? "GUARDAR SERVIÇO" : "GUARDAR PRODUTO";
+      mostrarLucro();
+    }
+    const ganho = document.getElementById("ganho-pct");
+    const escrever = (v) => v.toFixed(2).replace(".", ",");
+    const escreverPct = (v) => (Math.round(v * 10) / 10).toString().replace(".", ",");
+    let fonte = "custo";  // o último que ela escreveu manda (mudou o preço: o outro se ajusta)
+    // escreveu o custo: calcula a %; escreveu a %: calcula o custo (sempre em cima do preço de venda)
+    function sincronizar() {
+      if (!custo || !ganho) return;
+      const v = ler(preco.value);
+      if (!(v > 0)) return;
+      if (fonte === "pct" && ganho.value.trim() !== "") {
+        const pct = ler(ganho.value);
+        if (pct >= 0 && pct <= 100) custo.value = escrever(Math.round(v * (100 - pct)) / 100);
+      } else if (fonte === "custo" && custo.value.trim() !== "") {
+        ganho.value = escreverPct(((v - ler(custo.value)) / v) * 100);
+      }
+    }
+    function mostrarLucro() {
+      if (!lucro) return;
+      const v = ler(preco.value), c = ler(custo.value);
+      const tem = v >= 0 && c >= 0 && custo.value.trim() !== "";
+      const pctErrada = ganho && ganho.value.trim() !== "" && (ler(ganho.value) > 100);
+      lucro.classList.toggle("oculto", !tem && !pctErrada);
+      if (pctErrada) { lucro.textContent = "⚠️ A porcentagem vai de 0 a 100."; lucro.classList.add("prejuizo"); return; }
+      if (!tem) return;
+      const l = v - c;
+      lucro.textContent = l >= 0 ? `💰 Você ganha ${reais(l)} em cada ${servicoMarcado() ? "vez" : "um"}${v > 0 ? ` (${Math.round((l / v) * 100)}% do preço)` : ""}`
+                                 : `⚠️ Prejuízo: ${reais(-l)}. O preço está menor que o custo.`;
+      lucro.classList.toggle("prejuizo", l < 0);
+    }
+    const servicoMarcado = () => form.querySelector('input[name="servico"]:checked').value === "1";
+    form.querySelectorAll('input[name="servico"]').forEach((r) => r.addEventListener("change", mostrarTipo));
+    if (custo && ganho) {
+      custo.addEventListener("input", () => { fonte = "custo"; sincronizar(); mostrarLucro(); });
+      ganho.addEventListener("input", () => { fonte = "pct"; sincronizar(); mostrarLucro(); });
+      preco.addEventListener("input", () => { sincronizar(); mostrarLucro(); });
+    }
+    mostrarTipo(); mostrarLucro();
+  })();
+  // O leitor de código de barras "digita" o código e aperta Enter: aqui o Enter só confirma a leitura,
+  // não guarda o produto antes da hora.
+  (function () {
+    const campo = document.getElementById("codigo-barras");
+    const dica = document.getElementById("codigo-dica");
+    if (!campo) return;
+    campo.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && !(e.ctrlKey && e.code === "KeyJ")) return;  // Ctrl+J: "pular linha" do leitor
+      e.preventDefault();
+      campo.value = campo.value.trim();
+      if (campo.value) dica.textContent = "✅ Código lido. Agora é só GUARDAR PRODUTO.";
+    });
+    // no celular: a câmera lê o código de barras e põe no campo (com o bip, igual à maquininha)
+    document.getElementById("ler-camera").addEventListener("click", () => window.lerComCamera((codigo) => {
+      campo.value = codigo;
+      dica.textContent = "✅ Código lido. Agora é só GUARDAR PRODUTO.";
+    }));
+  })();
+</script>{% endblock %}

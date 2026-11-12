@@ -1,0 +1,18 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Apagar produto", voltar="/produtos/" ~ p.id %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="cartao atrasado">
+  <p style="margin:0">Tem certeza que quer apagar este produto?</p>
+  <p class="caminho" style="margin:8px 0 0"><strong>{{ p.nome }}</strong> · {{ p.preco|reais }}</p>
+  <p class="linha-info sub">{% if categoria %}<span class="cat-icone pequeno" aria-hidden="true">{{ icone_categoria }}</span> {{ categoria }} · {% endif %}{{ 'serviço' if p.servico else 'tenho ' ~ p.quantidade }}</p>
+  {% if vendas %}
+  <p style="margin:12px 0 0">Ele já foi vendido {{ vendas }} {{ "vez" if vendas == 1 else "vezes" }}. Essas vendas <strong>continuam guardadas</strong> no fiado e no Meu Dinheiro, com o nome do produto.</p>
+  {% endif %}
+  <p style="margin:12px 0 0"><strong>Não dá para desfazer.</strong></p>
+</div>
+<form method="post" action="/produtos/{{ p.id }}/apagar" class="acoes duas">
+  <a class="botao claro" href="/produtos/{{ p.id }}">NÃO, VOLTAR</a>
+  <button type="submit" class="perigo-cheio">🗑️ SIM, APAGAR</button>
+</form>
+{% endblock %}

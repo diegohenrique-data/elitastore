@@ -1,0 +1,26 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Apagar categoria", voltar="/produtos/novo?dentro=" ~ cat.id %}{% include "layout/_topo.html" %}{% endwith %}
+{% if filhas or produtos %}
+<div class="cartao de-hoje">
+  <p class="caminho" style="margin-top:0"><span class="cat-icone pequeno" aria-hidden="true">{{ cat.icone }}</span> {{ cat.nome_completo }}</p>
+  <p style="margin:0">Essa categoria ainda tem
+    {% if filhas %}<strong>{{ filhas }} {{ "subcategoria" if filhas == 1 else "subcategorias" }}</strong>{% endif %}
+    {% if filhas and produtos %} e {% endif %}
+    {% if produtos %}<strong>{{ produtos }} {{ "produto" if produtos == 1 else "produtos" }}</strong>{% endif %}
+    dentro.</p>
+  <p style="margin:10px 0 0">Para não perder nada, primeiro apague as subcategorias ou mude os produtos para outra categoria. Depois volte aqui.</p>
+</div>
+<div class="acoes"><a class="botao" href="/produtos/novo?dentro={{ cat.id }}">VOLTAR PARA A CATEGORIA</a></div>
+{% else %}
+<div class="cartao atrasado">
+  <p style="margin:0">Tem certeza que quer apagar esta categoria?</p>
+  <p class="caminho" style="margin-bottom:0"><span class="cat-icone pequeno" aria-hidden="true">{{ cat.icone }}</span> <strong>{{ cat.nome_completo }}</strong></p>
+</div>
+<form method="post" action="/categorias/{{ cat.id }}/apagar" class="acoes duas">
+  <a class="botao claro" href="/produtos/novo?dentro={{ cat.id }}">NÃO, VOLTAR</a>
+  <button type="submit" class="perigo-cheio">🗑️ SIM, APAGAR</button>
+</form>
+{% endif %}
+{% endblock %}

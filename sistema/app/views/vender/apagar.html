@@ -1,0 +1,23 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Apagar venda", voltar="/vender/feita/" ~ v.id %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="cartao atrasado">
+  <p class="sem-margem">Tem certeza que quer apagar esta venda?</p>
+  <p class="caminho linha-info"><strong>{{ c.nome or "Balcão" }}</strong> · {{ v.total|reais }} · {{ FORMAS[v.forma_pagamento] }}</p>
+  <ul class="sucesso-itens">
+    {% for i in v.venda_itens %}<li>{{ i.quantidade }}x {{ i.descricao }}</li>{% endfor %}
+  </ul>
+  {% if v.observacao != "Compra antiga (anotada depois)" %}<p class="linha-info">Os produtos voltam para o estoque.</p>{% endif %}
+  {% if v.forma_pagamento == "fiado" %}<p class="linha-info">As parcelas desta venda saem do fiado.</p>{% endif %}
+  {% if pago > 0 %}
+  {% if s.e_dona %}<p class="linha-info"><strong>Esta venda já recebeu {{ pago|reais }}.</strong> O pagamento continua guardado e passa a abater as outras parcelas da pessoa. Se ele também estiver errado, apague em Pagamentos recebidos.</p>
+  {% else %}<p class="linha-info"><strong>Esta venda já recebeu pagamento.</strong> Só a Elita pode apagar.</p>{% endif %}
+  {% endif %}
+  <p class="linha-info"><strong>Não dá para desfazer.</strong></p>
+</div>
+<form method="post" action="/vendas/{{ v.id }}/apagar" class="acoes duas">
+  <a class="botao claro" href="/vender/feita/{{ v.id }}">NÃO, VOLTAR</a>
+  {% if s.e_dona or not pago > 0 %}<button type="submit" class="perigo-cheio">🗑️ SIM, APAGAR</button>{% endif %}
+</form>
+{% endblock %}

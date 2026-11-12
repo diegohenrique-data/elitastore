@@ -1,0 +1,45 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Meu dinheiro · " ~ mes %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="numeros">
+  <div class="cartao numero em-dia"><p class="rotulo">⬇️ Entrou este mês</p><p class="numero-grande sem-margem">{{ entrou|reais }}</p></div>
+  {# DÍVIDAS: a soma de tudo o que as pessoas me devem (o fiado que falta). Tocar abre a lista de cada uma. #}
+  <a class="cartao numero cartao-divida" href="/meu-dinheiro/dividas" aria-label="Dívidas: me devem {{ fiado|reais }}. Ver quem deve">
+    <p class="rotulo">💸 Dívidas: tudo que me devem <span class="seta-cartao" aria-hidden="true">›</span></p><p class="numero-grande sem-margem">{{ fiado|reais }}</p>
+    <p class="linha-info">{% if pessoas_devendo %}{{ pessoas_devendo }} {{ "pessoa devendo" if pessoas_devendo == 1 else "pessoas devendo" }}{% else %}Ninguém está devendo{% endif %}</p>
+    {% if atrasado > 0 %}<p class="linha-info">🔴 atrasado: <strong>{{ atrasado|reais }}</strong></p>{% endif %}</a>
+  <div class="cartao numero"><p class="rotulo">📅 Vai entrar até o fim do mês</p><p class="numero-grande sem-margem">{{ vai_entrar|reais }}</p></div>
+  <div class="cartao numero"><p class="rotulo">⬆️ Gastei este mês</p><p class="numero-grande sem-margem">{{ gastei|reais }}</p></div>
+  <div class="cartao numero"><p class="rotulo">🛍️ Vendi este mês</p><p class="numero-grande sem-margem">{{ vendi|reais }}</p>
+    <p class="linha-info">na hora {{ na_hora|reais }} · fiado {{ no_fiado|reais }}</p></div>
+  <a class="cartao numero {{ 'em-dia' if lucro.lucro >= 0 else 'atrasado' }}" href="/meu-dinheiro/custos" aria-label="Lucro das vendas este mês: {{ lucro.lucro|reais }}. Abrir Custos e lucro">
+    <p class="rotulo">💰 Lucro das vendas este mês <span class="seta-cartao" aria-hidden="true">›</span></p><p class="numero-grande sem-margem">{{ lucro.lucro|reais }}</p>
+    <p class="linha-info">tirando os gastos sobrou {{ lucro.sobrou|reais }}</p></a>
+  <div class="cartao numero"><p class="rotulo">📦 Tenho em mercadoria</p><p class="numero-grande sem-margem">{{ mercadoria|reais }}</p>
+    <p class="linha-info sub">Pelo custo dos produtos que têm custo anotado.</p></div>
+</div>
+
+<form method="post" action="/meu-dinheiro/gasto" class="cartao">
+  <h2>➕ ANOTAR UM GASTO</h2>
+  <label class="campo"><span>Quanto?</span><input type="text" name="valor" inputmode="decimal" required placeholder="Ex.: 120,00"></label>
+  <label class="campo"><span>O que foi?</span><input type="text" name="descricao" required placeholder="Ex.: frete, mercadoria, viagem"></label>
+  <label class="campo"><span>Quando?</span><input type="date" name="data" value="{{ u.hoje().isoformat() }}"></label>
+  <button type="submit">ANOTAR GASTO</button>
+</form>
+
+{% if gastos %}
+<h2 class="secao">Gastos deste mês</h2>
+<ul class="lista">{% for g in gastos %}
+  <li class="item"><span><span class="nome">{{ g.descricao }}</span><br><span class="sub">{{ g.gasto_em|data_curta }}</span></span>
+    <span class="valor-e-apagar"><span class="valor">{{ g.valor|reais }}</span>
+      <form method="post" action="/meu-dinheiro/gasto/{{ g.id }}/apagar" data-confirmar="Apagar este gasto de {{ g.valor|reais }}?"><button type="submit" class="claro pequeno perigo" aria-label="Apagar o gasto {{ g.descricao }}">🗑️</button></form></span></li>{% endfor %}</ul>
+{% endif %}
+
+<a class="botao botao-no-cartao" href="/meu-dinheiro/custos">📊 CUSTOS E LUCRO DE CADA PRODUTO</a>
+<a class="botao claro botao-no-cartao" href="/meu-dinheiro/lancamentos">🧾 VENDAS E PAGAMENTOS DO MÊS</a>
+
+<div class="acoes duas">
+  <a class="botao claro" href="/equipe">👥 EQUIPE</a>
+  <a class="botao claro" href="/loja">⚙️ DADOS DA LOJA</a>
+</div>
+{% endblock %}

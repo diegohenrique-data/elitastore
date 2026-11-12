@@ -1,0 +1,112 @@
+{# PAINEL DE FILTRO "O que eu tenho?": busca, Categoria (3 quadrados + "Ver todas"), Tipo, Preço e,
+   se vier "situacoes", Como está o estoque. É O MESMO nas telas PRODUTOS e MANDAR O QUE TENHO
+   (um estilo de filtro só no sistema). Fica dentro de um <form id="filtro" class="painel-filtro">.
+   Recebe: categorias (com qtd e icone), resumo, painel_titulo/painel_sub (opcionais). O JavaScript é static/filtro.js. #}
+{% set principais = categorias|selectattr("nivel", "equalto", 0)|list %}
+  <div class="painel-filtro-cabeca">
+    <span class="painel-filtro-icone" aria-hidden="true">🔎</span>
+    <div>
+      <h2>{{ painel_titulo|default("O que eu tenho?") }}</h2>
+      <p>{% if painel_sub is defined %}{{ painel_sub }}{% else %}{{ resumo.produtos }} {{ "produto" if resumo.produtos == 1 else "produtos" }} · {{ resumo.unidades }} {{ "unidade" if resumo.unidades == 1 else "unidades" }} na loja{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="busca-grande">
+    <input type="search" name="busca" placeholder="Nome ou código do produto" aria-label="Buscar produto pelo nome ou código de barras" autocomplete="off">
+    <button type="submit">BUSCAR</button>
+  </div>
+
+  {% if principais %}
+  {# Só 3 quadrados, limpos: as 3 últimas categorias que a pessoa usou no filtro (o aparelho guarda).
+     Sem histórico: as 3 com mais produtos. Todas ficam no painel "Ver todas as categorias".
+     Nenhuma marcada = todas. Tocar de novo no quadrado marcado desmarca. #}
+  {% set por_qtd = principais|sort(attribute="qtd", reverse=True) %}
+  <section class="filtro-bloco">
+    <div class="filtro-bloco-titulo">
+      <h3>Categoria</h3>
+      <span class="filtro-bloco-dica" id="dica-categorias">{% if principais|length > 3 %}as que mais têm produtos{% endif %}</span>
+    </div>
+    <div class="grade-categorias" id="grade-categorias">
+      {% for c in por_qtd %}
+      <label class="cat-quadro{% if loop.index > 3 %} oculto{% endif %}" data-id="{{ c.id }}"><input type="radio" name="f_cat" value="{{ c.id }}">
+        <span><span class="cat-icone" aria-hidden="true">{{ c.icone }}</span><strong>{{ c.nome }}</strong><small>{{ c.qtd }} {{ "produto" if c.qtd == 1 else "produtos" }}</small></span></label>
+      {% endfor %}
+    </div>
+    {% if principais|length > 3 %}
+    <button type="button" class="cat-mais" id="abrir-categorias" aria-haspopup="dialog" aria-controls="folha-categorias">
+      <span aria-hidden="true">📂</span> Ver todas as categorias ({{ principais|length }})
+    </button>
+    {% endif %}
+    <p class="filtro-bloco-ajuda">Sem categoria marcada, mostra todas. Toque de novo para desmarcar.</p>
+  </section>
+  {% for c in principais %}
+  {% set filhas = categorias|selectattr("categoria_pai_id", "equalto", c.id)|list %}
+  {% if filhas %}
+  <section class="filtro-bloco filtro-sub oculto" data-pai="{{ c.id }}">
+    <h3>Tipo de {{ c.nome }}</h3>
+    <div class="segmentos" id="tipos-{{ c.id }}">
+      <label class="seg-op"><input type="radio" name="f_sub_{{ c.id }}" value="" checked><span>Tudo</span></label>
+      {% for f in filhas %}
+      <label class="seg-op{% if loop.index > 5 %} extra oculto{% endif %}"><input type="radio" name="f_sub_{{ c.id }}" value="{{ f.id }}"><span>{{ f.nome }} ({{ f.qtd }})</span></label>
+      {% endfor %}
+    </div>
+    {% if filhas|length > 5 %}
+    <button type="button" class="ver-todas" data-grupo="tipos-{{ c.id }}">Ver todos os tipos ({{ filhas|length }})</button>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% endfor %}
+
+  {% if principais|length > 3 %}
+  {# Painel "Mais categorias": todas, de A a Z, com busca (acha também pelo tipo: "importados" acha Perfume). #}
+  <div class="folha-fundo oculto" id="fundo-categorias"></div>
+  <div class="folha oculto" id="folha-categorias" role="dialog" aria-modal="true" aria-labelledby="titulo-categorias">
+    <div class="folha-alca" aria-hidden="true"></div>
+    <h3 class="folha-titulo" id="titulo-categorias" tabindex="-1">Todas as categorias ({{ principais|length }})</h3>
+    <input type="search" class="busca-categoria" id="busca-categoria" placeholder="Procurar categoria" aria-label="Procurar categoria pelo nome ou pelo tipo" autocomplete="off">
+    <div class="folha-conteudo">
+      <div class="lista-categorias" id="lista-categorias">
+        {% for c in principais|sort(attribute="nome") %}
+        {% set filhas = categorias|selectattr("categoria_pai_id", "equalto", c.id)|list %}
+        <label class="cat-linha" data-busca="{{ c.nome }} {{ filhas|map(attribute='nome')|join(' ') }}">
+          <input type="radio" name="f_cat" value="{{ c.id }}" data-nome="{{ c.nome }}" data-icone="{{ c.icone }}" data-qtd="{{ c.qtd }}">
+          <span>
+            <span class="cat-icone" aria-hidden="true">{{ c.icone }}</span>
+            <span class="cat-linha-texto"><strong>{{ c.nome }}</strong>{% if filhas %}<small>{{ filhas|map(attribute='nome')|join(', ') }}</small>{% endif %}</span>
+            <span class="cat-linha-qtd">{{ c.qtd }}</span>
+            <span class="check" aria-hidden="true">✓</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="vazio oculto" id="nenhuma-categoria">Nenhuma categoria com esse nome.</p>
+    </div>
+    <div class="folha-botoes uma">
+      <button type="button" class="claro" id="fechar-categorias">Fechar</button>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <section class="filtro-bloco">
+    <h3>Preço</h3>
+    <div class="segmentos quatro">
+      <label class="seg-op"><input type="radio" name="f_preco" value="" checked><span>Qualquer</span></label>
+      {% for v in [50, 100, 200] %}
+      <label class="seg-op"><input type="radio" name="f_preco" value="{{ v }}"><span>Até R$ {{ v }}</span></label>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if situacoes is defined and situacoes %}
+  <section class="filtro-bloco">
+    <h3>Como está o estoque</h3>
+    <div class="segmentos quatro">
+      <label class="seg-op"><input type="radio" name="f_situacao" value="" checked><span>Tudo</span></label>
+      {% for st in situacoes %}
+      <label class="seg-op"><input type="radio" name="f_situacao" value="{{ st.valor }}"><span>{{ st.nome }} ({{ st.qtd }})</span></label>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+

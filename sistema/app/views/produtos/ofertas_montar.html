@@ -1,0 +1,170 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Montar oferta", voltar="/produtos" %}{% include "layout/_topo.html" %}{% endwith %}
+<p class="sub" style="margin-top:0">🎁 Junte produtos num <strong>kit com desconto</strong> e mande para a cliente no WhatsApp. Os que estão parados há muito tempo aparecem primeiro.</p>
+
+{# A oferta: os campos ficam espalhados pela tela e entram neste formulário pelo form="oferta"
+   (o filtro do meio é outro formulário). Os escolhidos vão no endereço: nada fica guardado no banco. #}
+<form method="get" action="/ofertas/ver" id="oferta"></form>
+
+<section class="cartao" aria-labelledby="titulo-parados">
+  <h2 id="titulo-parados">⏳ Parados há muito tempo</h2>
+  {% if parados %}
+  <p class="sub">{{ "Este produto não vende" if parados|length == 1 else "Estes " ~ parados|length ~ " produtos não vendem" }} há mais de {{ dias_parado }} dias. Uma oferta ajuda a girar o estoque.</p>
+  <div class="marcar-barra">
+    <span>{{ parados|length }} {{ "parado" if parados|length == 1 else "parados" }}</span>
+    <button type="button" class="claro pequeno" id="marcar-parados">✔️ Marcar todos</button>
+  </div>
+  <ul class="marcar-grade" id="lista-parados">
+    {% for p in parados %}
+    <li>{% with p=p, parado=True %}{% include "produtos/_oferta_cartao.html" %}{% endwith %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="vazio">🎉 Nenhum produto parado. Dá para montar a oferta com qualquer produto aqui embaixo.</p>
+  {% endif %}
+</section>
+
+<section class="cartao" id="juntar" aria-labelledby="titulo-outros">
+  <h2 id="titulo-outros">🔎 Juntar outros produtos</h2>
+  {# O MESMO filtro do sistema (busca + ⚙️ Filtros: categoria, tipo e preço), igual a PRODUTOS. #}
+  <form method="get" action="/ofertas#juntar" class="filtro" id="filtro" data-usada="{{ cat_principal }}"
+        data-atual="{{ filtro.id if filtro else '' }}" data-preco="{{ preco_max or '' }}" data-limpar-aqui="1">
+    <div class="busca-com-filtro">
+      <input type="search" name="busca" value="{{ busca }}" placeholder="Buscar produto" aria-label="Buscar produto pelo nome ou código de barras" autocomplete="off">
+      <button type="button" class="botao-filtros" id="abrir-filtros" aria-haspopup="dialog" aria-controls="folha-filtros" aria-label="Filtros">
+        <span aria-hidden="true">⚙️</span><span class="texto-filtros"> Filtros</span><span class="filtros-qtd{% if not etiquetas %} oculto{% endif %}" id="filtros-qtd">{{ etiquetas|length }}</span>
+      </button>
+    </div>
+    {% if etiquetas %}
+    <div class="filtros-ativos" id="filtros-ativos">
+      {% for texto, chave in etiquetas %}<button type="button" class="etiqueta-filtro" data-tirar="{{ chave }}" aria-label="Tirar o filtro {{ texto }}">{{ texto }} ✕</button>{% endfor %}
+    </div>
+    {% endif %}
+    {% include "layout/_folha_filtros.html" %}
+  </form>
+
+  {% if filtrando %}
+  <p class="resultado-filtro">{{ achados }} {{ "produto encontrado" if achados == 1 else "produtos encontrados" }}</p>
+  {% endif %}
+  {% if outros %}
+  <ul class="marcar-grade oferta-outros" id="lista-outros">
+    {% for p in outros %}
+    <li>{% with p=p, parado=False %}{% include "produtos/_oferta_cartao.html" %}{% endwith %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if filtrando and not achados %}
+  <p class="vazio">Nada encontrado com esse filtro. Tente outro nome ou outra categoria.</p>
+  {% elif not filtrando %}
+  <p class="dica">Escreva o nome do produto ou toque em <strong>⚙️ Filtros</strong> para escolher a categoria. Os que você já marcou continuam na oferta.</p>
+  {% endif %}
+</section>
+
+<section class="cartao" aria-labelledby="titulo-desconto">
+  <h2 id="titulo-desconto">🏷️ O desconto</h2>
+  <label class="campo"><span>Nome da oferta (opcional)</span>
+    <input type="text" name="nome" form="oferta" value="{{ campos.nome }}" maxlength="60" placeholder="Ex.: Kit Dia das Mães"></label>
+  <fieldset class="escolhas duas">
+    <legend>Como vai ser o desconto?</legend>
+    <label><input type="radio" name="tipo" form="oferta" value="pct" {% if campos.tipo != "kit" %}checked{% endif %}><span>% de desconto</span></label>
+    <label><input type="radio" name="tipo" form="oferta" value="kit" {% if campos.tipo == "kit" %}checked{% endif %}><span>💰 Preço do kit</span></label>
+  </fieldset>
+  <label class="campo"><span id="rotulo-valor">Quantos % de desconto?</span>
+    <input type="text" name="valor" form="oferta" id="valor" value="{{ campos.valor }}" inputmode="decimal" required placeholder="Ex.: 20" autocomplete="off"></label>
+  <label class="campo"><span>Vale até (opcional)</span>
+    <input type="date" name="ate" form="oferta" value="{{ campos.ate }}" min="{{ hoje.isoformat() }}">
+    <small>Aparece na mensagem: "Só até ...". Ajuda a cliente a decidir logo.</small></label>
+  <div class="oferta-conta" id="conta" aria-live="polite">Toque nos produtos que vão na oferta.</div>
+</section>
+
+<div class="acoes empilhadas">
+  <button type="submit" form="oferta" class="verde">👀 VER A OFERTA</button>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/filtro.js?v={{ estilo_v }}" defer></script>
+<script>
+  // Montar oferta: "marcar todos" os parados, a conta na hora (De ... por ...) e o filtro que não perde a oferta.
+  (function () {
+    const oferta = document.getElementById("oferta");
+    const filtro = document.getElementById("filtro");
+    const MAX = {{ max_oferta }};
+    const ler = (t) => { t = String(t || "").replace("R$", "").replace("%", "").trim(); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return parseFloat(t) || 0; };
+    const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const campos = () => [...oferta.elements];
+    const caixas = () => campos().filter((c) => c.name === "prod");
+    const conta = document.getElementById("conta");
+    const valor = document.getElementById("valor");
+
+    // FILTRAR leva junto o que já está na oferta (produtos marcados, nome, desconto, data)
+    filtro.addEventListener("submit", () => {
+      filtro.querySelectorAll(".levar").forEach((i) => i.remove());
+      campos().forEach((c) => {
+        if (!c.name || ((c.type === "checkbox" || c.type === "radio") && !c.checked) || !c.value) return;
+        const i = document.createElement("input");
+        i.type = "hidden"; i.className = "levar"; i.name = c.name; i.value = c.value;
+        filtro.append(i);
+      });
+    });
+    // ✕ da etiqueta: tira só aquele filtro e filtra de novo (sem perder a oferta)
+    filtro.querySelectorAll("[data-tirar]").forEach((b) => b.addEventListener("click", () => {
+      const tirar = b.dataset.tirar;
+      if (tirar === "busca") filtro.querySelector('input[name="busca"]').value = "";
+      if (tirar === "cat") filtro.querySelectorAll('input[name="f_cat"][value=""], input[name^="f_sub_"][value=""]').forEach((r) => { r.checked = true; });
+      if (tirar === "f_preco") { const r = filtro.querySelector('input[name="f_preco"][value=""]'); if (r) r.checked = true; }
+      filtro.requestSubmit();
+    }));
+
+    const marcarParados = document.getElementById("marcar-parados");
+    if (marcarParados) marcarParados.addEventListener("click", () => {
+      const lista = [...document.querySelectorAll('#lista-parados input[name="prod"]')];
+      const todos = lista.every((c) => c.checked);
+      lista.forEach((c) => { c.checked = !todos; });
+      contar();
+    });
+
+    function contar() {
+      const marcados = caixas().filter((c) => c.checked);
+      const kit = campos().some((c) => c.name === "tipo" && c.checked && c.value === "kit");
+      document.getElementById("rotulo-valor").textContent = kit ? "Preço do kit (tudo junto)" : "Quantos % de desconto?";
+      valor.placeholder = kit ? "Ex.: 199,90" : "Ex.: 20";
+      if (marcarParados) {
+        const lista = [...document.querySelectorAll('#lista-parados input[name="prod"]')];
+        marcarParados.textContent = lista.length && lista.every((c) => c.checked) ? "✖️ Desmarcar todos" : "✔️ Marcar todos";
+      }
+      conta.classList.remove("erro");
+      if (!marcados.length) { conta.textContent = "Toque nos produtos que vão na oferta."; return; }
+      if (marcados.length > MAX) { conta.textContent = `⚠️ No máximo ${MAX} produtos numa oferta. Tire ${marcados.length - MAX}.`; conta.classList.add("erro"); return; }
+      const de = Math.round(marcados.reduce((s, c) => s + ler(c.dataset.preco), 0) * 100) / 100;
+      const n = ler(valor.value);
+      const qtd = `${marcados.length} ${marcados.length === 1 ? "produto" : "produtos"}`;
+      if (!n) { conta.textContent = `🎁 ${qtd} · somam ${reais(de)}. Agora escreva o desconto.`; return; }
+      const por = kit ? n : Math.round(de * (100 - Math.min(n, 100))) / 100;
+      if (kit && por >= de) { conta.textContent = `⚠️ O preço do kit precisa ser menor que ${reais(de)} (a soma dos produtos).`; conta.classList.add("erro"); return; }
+      if (!kit && n >= 100) { conta.textContent = "⚠️ O desconto precisa ser menor que 100%."; conta.classList.add("erro"); return; }
+      const pct = Math.round(((de - por) / de) * 100);
+      conta.innerHTML = "";
+      const linha1 = document.createElement("span"); linha1.textContent = `🎁 ${qtd}`;
+      const linha2 = document.createElement("strong");
+      linha2.innerHTML = `De <s>${reais(de)}</s> por ${reais(por)}`;
+      const linha3 = document.createElement("span"); linha3.textContent = `A cliente economiza ${reais(de - por)} (${pct}%)`;
+      conta.append(linha1, linha2, linha3);
+    }
+
+    // os campos da oferta ficam fora do <form id="oferta"> (form="oferta"): ouvir na tela toda
+    const daOferta = (e) => e.target.form === oferta;
+    document.addEventListener("change", (e) => { if (daOferta(e)) contar(); });
+    document.addEventListener("input", (e) => { if (daOferta(e)) contar(); });
+    oferta.addEventListener("submit", (e) => {
+      const qtd = caixas().filter((c) => c.checked).length;
+      if (!qtd || qtd > MAX || conta.classList.contains("erro")) {
+        e.preventDefault();
+        if (!qtd) { conta.textContent = "⚠️ Toque em pelo menos um produto para pôr na oferta."; conta.classList.add("erro"); }
+        conta.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    contar();
+  })();
+</script>
+{% endblock %}

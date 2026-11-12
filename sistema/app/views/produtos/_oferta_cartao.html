@@ -1,0 +1,14 @@
+{# Um produto para marcar na oferta (mesmo cartão do Mandar o que tenho). parado=True mostra há quantos dias não vende. #}
+<label class="marcar-op">
+  <input type="checkbox" name="prod" form="oferta" value="{{ p.id }}" data-preco="{{ p.preco }}"{% if p.id in marcados %} checked{% endif %}>
+  <span class="marcar-cartao">
+    <span class="marcar-foto">
+      {% if p.fotos %}<img src="{{ p.fotos[0] }}" alt="" loading="lazy" decoding="async">
+      {% else %}<span class="vitrine-sem-foto"><span aria-hidden="true">📷</span>Sem foto</span>{% endif %}
+      <span class="marcar-check" aria-hidden="true">✓</span>
+      {% if parado %}<span class="selo-parado">⏳ {{ p.dias }} dias parado</span>{% endif %}
+    </span>
+    <span class="marcar-texto"><span class="vitrine-nome">{{ p.nome }}</span><span class="vitrine-preco">{{ p.preco|reais }}</span>
+      {% if parado %}<span class="sub">tenho {{ p.quantidade }}</span>{% endif %}</span>
+  </span>
+</label>

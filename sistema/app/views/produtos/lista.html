@@ -1,0 +1,80 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Produtos" %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="acoes">
+  <a class="botao" href="/produtos/novo">➕ NOVO PRODUTO</a>
+  <a class="botao claro" href="/mandar-o-que-tenho">📲 MANDAR O QUE TENHO</a>
+  <a class="botao claro" href="/ofertas">🎁 MONTAR OFERTA</a>
+</div>
+
+{% if so_filtro %}
+{# A tela abre no FILTRO (sem a lista de produtos): busca, categoria, tipo, preço e situação. #}
+<form method="get" action="/produtos" class="painel-filtro" id="filtro" data-usada="{{ cat_principal }}">
+  <input type="hidden" name="todos" value="1">{# VER PRODUTOS sem escolher nada = todos os produtos #}
+  {% include "produtos/_painel_filtro.html" %}
+
+  <div class="painel-filtro-botoes">
+    <a class="botao claro" href="/produtos?todos=1">📋 VER TODOS</a>
+    <button type="submit">🔎 VER PRODUTOS</button>
+  </div>
+</form>
+
+{% else %}
+{# Depois de buscar ou filtrar: a busca, o botão de Filtros (painel de baixo) e a lista. #}
+<form method="get" action="/produtos" class="cartao filtro" id="filtro" data-usada="{{ cat_principal }}"
+      data-atual="{{ filtro.id if filtro else '' }}" data-preco="{{ preco_max or '' }}" data-limpar="/produtos">
+  <div class="busca-com-filtro">
+    <input type="search" name="busca" value="{{ busca }}" placeholder="Buscar produto" aria-label="Buscar produto pelo nome ou código de barras" autocomplete="off">
+    <button type="button" class="botao-filtros" id="abrir-filtros" aria-haspopup="dialog" aria-controls="folha-filtros" aria-label="Filtros">
+      <span aria-hidden="true">⚙️</span><span class="texto-filtros"> Filtros</span><span class="filtros-qtd{% if not etiquetas %} oculto{% endif %}" id="filtros-qtd">{{ etiquetas|length }}</span>
+    </button>
+  </div>
+  {% if etiquetas %}
+  <div class="filtros-ativos" id="filtros-ativos">
+    {% for texto, sem in etiquetas %}<a class="etiqueta-filtro" href="{{ sem }}" aria-label="Tirar o filtro {{ texto }}">{{ texto }} ✕</a>{% endfor %}
+  </div>
+  {% endif %}
+  {% if situacao %}<input type="hidden" name="f_situacao" value="{{ situacao }}">{% endif %}
+  {% include "layout/_folha_filtros.html" %}
+</form>
+
+<p class="resultado-filtro">
+  {% if busca %}"{{ busca }}" · {% endif %}{{ total }} {{ "produto" if total == 1 else "produtos" }} · {{ unidades }} {{ "unidade" if unidades == 1 else "unidades" }} em estoque
+</p>
+
+{% if grupos %}
+  {# VITRINE: uma grade só, um quadradinho por produto com a foto em cima (igual Mercado Livre
+     e Shopee), na ordem das categorias; o nome da categoria vai pequeno em cada um. #}
+  <ul class="vitrine">
+    {% for categoria, itens in grupos.items() %}{% for p in itens %}
+    {% set fotos = p.fotos|default([]) %}
+    <li><div class="vitrine-item{% if 'Acabou' in p.avisos %} acabou{% endif %}">
+      {# Fotos: com mais de uma, setinhas ‹ › para passar (e no celular dá para arrastar com o dedo). #}
+      <div class="vitrine-foto"{% if fotos|length > 1 %} data-carrossel{% endif %}>
+        <a class="vitrine-fotos" href="/produtos/{{ p.id }}" tabindex="-1" aria-hidden="true">
+          {% for url in fotos %}<img src="{{ url }}" alt="" loading="lazy" decoding="async">
+          {% else %}<span class="vitrine-sem-foto"><span aria-hidden="true">📷</span>Sem foto</span>{% endfor %}
+        </a>
+        {% if fotos|length > 1 %}
+        <button type="button" class="vitrine-seta anterior" aria-label="Foto anterior de {{ p.nome }}">‹</button>
+        <button type="button" class="vitrine-seta proxima" aria-label="Próxima foto de {{ p.nome }}">›</button>
+        <span class="vitrine-pontos" aria-hidden="true">{% for url in fotos %}<span{% if loop.first %} class="atual"{% endif %}></span>{% endfor %}</span>
+        {% endif %}
+        {% if 'Acabou' in p.avisos %}<span class="vitrine-faixa">Acabou</span>{% endif %}
+      </div>
+      <a class="vitrine-texto" href="/produtos/{{ p.id }}">
+        <span class="vitrine-categoria">{{ categoria }}</span>
+        <span class="vitrine-nome">{{ p.nome }}</span>
+        <span class="vitrine-preco">{{ p.preco|reais }}</span>
+        <span class="vitrine-estoque">{% if p.servico %}✂️ Serviço{% elif p.quantidade == 0 %}Sem estoque{% else %}Tenho {{ p.quantidade }}{% endif %}</span>
+        {% for a in p.avisos %}{% if a != 'Acabou' %}<span class="etiqueta">⚠️ {{ a }}</span>{% endif %}{% endfor %}
+      </a></div></li>
+    {% endfor %}{% endfor %}
+  </ul>
+{% else %}
+<p class="vazio">Nada encontrado com esse filtro. Tente outro, ou volte para o filtro.</p>
+{% endif %}
+<a class="botao claro voltar-filtro" href="/produtos">⬅ VOLTAR PARA O FILTRO</a>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/filtro.js?v={{ estilo_v }}" defer></script>{% endblock %}

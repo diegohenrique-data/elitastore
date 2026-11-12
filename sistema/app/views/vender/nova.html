@@ -1,0 +1,939 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{# COMPRA ANTIGA (aba PESSOAS): é esta mesma tela, com "antiga" = a pessoa (já escolhida). Muda só o
+   título, o endereço de guardar, o pagamento (dia da compra e quanto ainda deve) e não olha o estoque. #}
+{% if antiga %}
+{% with titulo="Compra antiga", voltar="/clientes/" ~ antiga.id %}{% include "layout/_topo.html" %}{% endwith %}
+<p class="sub" style="margin-top:0">📜 Anotar uma compra que <strong>{{ antiga.nome }}</strong> já fez: monte o carrinho igual a uma venda e, no pagamento, escolha o dia em que foi. Não mexe no estoque.</p>
+{% else %}
+{% with titulo="Nova venda", voltar=("/encomendas" if encomenda else "/") %}{% include "layout/_topo.html" %}{% endwith %}
+{% endif %}
+
+<ol class="etapas" id="etapas" aria-label="Etapas da venda">
+  <li data-etapa="cliente" data-ir="0" class="atual"><span class="bolinha">1</span>Cliente</li>
+  <li data-etapa="produto" data-ir="1"><span class="bolinha">2</span>Produtos</li>
+  <li data-etapa="pagamento" data-ir="2"><span class="bolinha">3</span>Pagamento</li>
+</ol>
+<p class="adicionado oculto" id="aviso-codigo" role="status"></p>
+
+<form method="post" action="{{ "/clientes/" ~ antiga.id ~ "/compra-antiga" if antiga else "/vender" }}" class="venda-grade" id="venda">
+  <input type="hidden" name="volta" value="{{ volta }}">
+  <input type="hidden" name="encomenda_id" value="{{ encomenda }}">
+
+  <div class="venda-etapas">
+    <section class="cartao etapa" id="etapa-cliente">
+      <h2><span class="num">1</span> Cliente</h2>
+      {% if pessoas %}
+      <div class="busca-com-filtro">
+        <input type="search" id="busca-cliente" placeholder="Nome ou telefone" aria-label="Procurar cliente pelo nome ou telefone" autocomplete="off">
+        <button type="button" class="botao-filtros" id="abrir-letras" aria-haspopup="dialog" aria-controls="folha-letras" aria-label="Filtrar clientes pela letra">
+          <span aria-hidden="true">⚙️</span><span class="texto-filtros"> Filtros</span><span class="filtros-qtd oculto" id="letras-qtd">1</span>
+        </button>
+      </div>
+      <div class="filtros-ativos oculto" id="letras-ativas" aria-live="polite"></div>
+      <p class="lista-titulo" id="titulo-clientes">🕘 Últimas clientes</p>
+      <div class="opcoes" id="lista-clientes" role="radiogroup" aria-label="Cliente">
+        {% for p in pessoas %}
+        <label class="opcao" data-busca="{{ p.nome }}" data-tel="{{ u.so_numeros(p.whatsapp) }}" data-letra="{{ p.letra }}"{% if p.recente %} data-recente="1"{% endif %}>
+          <input type="radio" name="cliente_id" value="{{ p.id }}" data-nome="{{ p.nome }}" required {% if p.id == cliente %}checked{% endif %}>
+          <span>
+            <span class="avatar" aria-hidden="true">{{ p.nome[:1]|upper }}</span>
+            <span class="opcao-texto"><strong>{{ p.nome }}</strong><small>{{ p.whatsapp or "sem WhatsApp" }}</small></span>
+            <span class="check" aria-hidden="true">✓</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="vazio oculto" id="nenhum-cliente">Nenhuma cliente com esse nome. Confira o nome. Cliente nova se cadastra em PESSOAS.</p>
+      <p class="dica oculto" id="mais-clientes">Tem mais clientes parecidas. Continue digitando o nome.</p>
+      {% else %}
+      <p class="vazio">Nenhuma cliente cadastrada ainda. Cadastre as clientes em PESSOAS.</p>
+      {% endif %}
+      <div class="navegacao-passos">
+        <button type="button" class="passo-avancar" data-ir="1">AVANÇAR ➜</button>
+      </div>
+
+      {% if pessoas %}
+      {% with quem="Clientes" %}{% include "layout/_folha_letras.html" %}{% endwith %}
+      {% endif %}
+    </section>
+
+    <section class="cartao etapa" id="etapa-produto">
+      <h2><span class="num">2</span> Produtos</h2>
+      {% if kit %}
+      {# veio de uma OFERTA (VENDER ESTE KIT): os produtos entram no carrinho e o desconto na compra toda #}
+      <div id="kit-inicial" hidden data-desconto="{{ desconto_kit }}">{% for k in kit %}<span data-id="{{ k }}"></span>{% endfor %}</div>
+      {% endif %}
+      {% if produto == "outro" and descricao %}
+      {# veio de uma encomenda: o que ela pediu entra direto no carrinho #}
+      <div id="item-inicial" hidden data-nome="{{ descricao }}" data-preco="{{ preco }}"></div>
+      {% endif %}
+
+      <div class="carrinho oculto" id="carrinho" aria-live="polite">
+        <div class="carrinho-topo"><strong>🛒 Carrinho</strong><span class="chip" id="carrinho-qtd"></span></div>
+        <ul class="carrinho-lista" id="carrinho-lista"></ul>
+        {# DESCONTO NA COMPRA TODA (em R$ ou %). O desconto de cada produto fica no item do carrinho. #}
+        <div class="carrinho-desconto">
+          <button type="button" class="link-desconto" id="abrir-desconto" aria-expanded="false" aria-controls="caixa-desconto">🏷️ Dar desconto na compra toda</button>
+          <div class="desconto-caixa oculto" id="caixa-desconto">
+            <label class="desconto-rotulo" for="desconto-valor">Desconto na compra toda</label>
+            <div class="desconto-linha">
+              <input type="text" id="desconto-valor" inputmode="decimal" placeholder="0" autocomplete="off">
+              <span class="segmentos-mini" role="group" aria-label="Desconto em reais ou em porcentagem">
+                <button type="button" data-tipo-geral="reais" aria-pressed="true">R$</button>
+                <button type="button" data-tipo-geral="pct" aria-pressed="false">%</button>
+              </span>
+              <button type="button" class="mini tirar" id="tirar-desconto" aria-label="Tirar o desconto da compra toda">✕</button>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" name="desconto" id="desconto-reais" value="">
+        <div class="carrinho-subtotal oculto" id="carrinho-subtotal-linha"><span>Soma dos produtos</span><span id="carrinho-subtotal"></span></div>
+        <div class="carrinho-subtotal desconto oculto" id="carrinho-desconto-linha"><span>🏷️ Desconto</span><span id="carrinho-desconto"></span></div>
+        <div class="carrinho-total"><span>Total</span><strong id="carrinho-soma">R$ 0,00</strong></div>
+      </div>
+      <p class="adicionado oculto" id="adicionado" role="status"></p>
+      <button type="button" class="claro oculto" id="abrir-busca">➕ ADICIONAR MAIS PRODUTOS</button>
+      {% if produtos %}
+      <button type="button" class="claro botao-camera so-camera" id="ler-camera">📷 LER CÓDIGO DE BARRAS</button>
+      {% endif %}
+
+      <div id="area-adicionar">
+        {% if produtos %}
+        <div class="busca-com-filtro">
+          <input type="search" id="busca-produto" placeholder="Buscar produto ou ler o código de barras" aria-label="Buscar produto pelo nome, categoria ou código de barras" autocomplete="off">
+          <button type="button" class="botao-filtros" id="abrir-filtros" aria-haspopup="dialog" aria-controls="folha-filtros" aria-label="Filtros">
+            <span aria-hidden="true">⚙️</span><span class="texto-filtros"> Filtros</span><span class="filtros-qtd oculto" id="filtros-qtd"></span>
+          </button>
+        </div>
+        <div class="filtros-ativos oculto" id="filtros-ativos" aria-live="polite"></div>
+        <p class="lista-titulo oculto" id="titulo-produtos">🔎 Produtos encontrados</p>
+        <div class="opcoes" id="lista-produtos" role="radiogroup" aria-label="Produto">
+          {% for p in produtos %}
+          <label class="opcao" data-busca="{{ p.nome }} {{ p.categoria }}" data-codigo="{{ p.codigo_barras or '' }}" data-cats="{{ p.categorias_ids }}">
+            <input type="radio" name="produto_id" value="{{ p.id }}" data-nome="{{ p.nome }}" data-preco="{{ p.preco_texto }}" data-estoque="{{ 0 if antiga or p.servico else p.quantidade }}" data-obrigatorio {% if p.id == produto %}checked{% endif %}>
+            <span>
+              <span class="avatar" aria-hidden="true">{{ p.nome[:1]|upper }}</span>
+              <span class="opcao-texto"><strong>{{ p.nome }}</strong><small>{{ p.categoria }} · {{ "✂️ serviço" if p.servico else "tenho " ~ p.quantidade }}</small></span>
+              <span class="opcao-preco">{{ p.preco|reais }}</span>
+              <span class="check" aria-hidden="true">✓</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="vazio oculto" id="nenhum-produto">Nenhum produto encontrado. Confira o nome ou a categoria.</p>
+        <p class="dica oculto" id="mais-produtos">Tem mais produtos. Digite o nome para achar mais rápido.</p>
+
+        <div id="detalhe-produto" class="oculto">
+          <div class="valores-venda">
+            <label class="campo"><span>Preço (cada)</span>
+              <span class="campo-reais"><input type="text" name="preco" id="preco" value="{{ preco if produto != 'outro' else '' }}" inputmode="decimal" data-obrigatorio placeholder="89,90"></span></label>
+            <div class="campo"><span id="rotulo-qtd">Quantidade</span>
+              <div class="contador">
+                <button type="button" class="contador-botao" data-passo="-1" aria-label="Diminuir quantidade">−</button>
+                <input type="number" name="quantidade" id="quantidade" value="1" min="1" inputmode="numeric" aria-labelledby="rotulo-qtd">
+                <button type="button" class="contador-botao" data-passo="1" aria-label="Aumentar quantidade">+</button>
+              </div>
+              <small id="aviso-estoque" class="oculto"></small>
+            </div>
+          </div>
+          <button type="button" class="botao-adicionar" id="adicionar" disabled>🛒 COLOCAR NO CARRINHO</button>
+        </div>
+        <button type="button" class="link-cancelar oculto" id="fechar-busca">Cancelar</button>
+        {% else %}
+        <p class="vazio">Nenhum produto em estoque. Cadastre os produtos em PRODUTOS.</p>
+        {% endif %}
+      </div>
+
+      <div class="navegacao-passos duas">
+        <button type="button" class="claro passo-voltar" data-ir="0">⬅ VOLTAR</button>
+        <button type="button" class="passo-avancar" data-ir="2">AVANÇAR ➜</button>
+      </div>
+
+      {% if produtos %}
+      {% include "layout/_folha_filtros.html" %}
+      {% endif %}
+    </section>
+
+    <section class="cartao etapa" id="etapa-pagamento">
+      <h2><span class="num">3</span> Pagamento</h2>
+      {% if antiga %}
+      <label class="campo"><span>📅 Quando foi a compra?</span>
+        <input type="date" name="quando" id="quando" max="{{ hoje.isoformat() }}" required></label>
+      {% endif %}
+      <fieldset class="escolhas">
+        <legend class="oculto">Forma de pagamento</legend>
+        {% for valor, nome in FORMAS.items() %}
+        <label{% if valor == "dividido" %} class="toda-largura"{% endif %}><input type="radio" name="forma" value="{{ valor }}" data-nome="{{ nome }}" {% if loop.first %}checked{% endif %}><span>{{ nome }}</span></label>
+        {% endfor %}
+      </fieldset>
+
+      {# PAGOU EM MAIS DE UMA FORMA: ex. R$ 20 em dinheiro + R$ 30 no cartão. Tem que fechar o total. #}
+      <div id="dividido" class="oculto">
+        <p class="desconto-rotulo">Quanto em cada forma?</p>
+        {% for f, nome in FORMAS_PARTES.items() %}
+        <label class="campo parte-linha"><span>{{ nome }}</span>
+          <span class="campo-reais"><input type="text" name="parte_{{ f }}" inputmode="decimal" placeholder="0,00" autocomplete="off" data-parte="{{ nome }}"></span></label>
+        {% endfor %}
+        <p class="parte-conta" id="parte-conta" aria-live="polite"></p>
+      </div>
+
+      <div id="fiado" class="oculto">
+        {% if antiga %}
+        <label class="campo"><span>Quanto ela ainda deve?</span>
+          <span class="campo-reais"><input type="text" name="ainda_deve" id="ainda-deve" inputmode="decimal" placeholder="Tudo"></span>
+          <small>Se ela já pagou uma parte, escreva só o que falta. Em branco: deve a compra toda. As parcelas começam a partir de hoje.</small></label>
+        {% endif %}
+        <div class="duas-colunas">
+          <label class="campo"><span>Em quantas vezes?</span>
+            <select name="vezes" id="vezes">{% for n in range(1, 13) %}<option value="{{ n }}" {% if n == 3 %}selected{% endif %}>{{ n }} {{ "vez" if n == 1 else "vezes" }}</option>{% endfor %}</select></label>
+          <label class="campo"><span>Paga no dia</span>
+            <select name="dia" id="dia">{% for n in range(1, 32) %}<option value="{{ n }}" {% if n == dia_padrao %}selected{% endif %}>dia {{ n }}</option>{% endfor %}</select></label>
+        </div>
+        <fieldset class="escolhas duas">
+          <legend>Paga quantas vezes por mês?</legend>
+          <label><input type="radio" name="por_mes" value="1" checked><span>1 vez no mês</span></label>
+          <label><input type="radio" name="por_mes" value="2"><span>2 vezes no mês</span></label>
+        </fieldset>
+        {% set dia2_padrao = dia_padrao + 10 if dia_padrao <= 18 else dia_padrao - 15 %}
+        <label class="campo oculto" id="campo-dia2"><span>E também no dia</span>
+          <select name="dia2" id="dia2">{% for n in range(1, 32) %}<option value="{{ n }}" {% if n == dia2_padrao %}selected{% endif %}>dia {{ n }}</option>{% endfor %}</select>
+          <small id="aviso-dia2" class="oculto" role="alert">Atenção: escolha um dia diferente do primeiro.</small></label>
+      </div>
+      <div class="navegacao-passos">
+        <button type="button" class="claro passo-voltar" data-ir="1">⬅ VOLTAR</button>
+      </div>
+    </section>
+  </div>
+
+  <aside class="venda-lateral">
+    <div class="cartao resumo-venda">
+      <h2>🧾 Resumo da {{ "compra" if antiga else "venda" }}</h2>
+      <dl aria-live="polite">
+        <dt>Cliente</dt><dd id="r-cliente" class="falta">escolha a cliente</dd>
+        <dt>Produtos</dt><dd id="r-produto" class="falta">carrinho vazio</dd>
+        <dt>Pagamento</dt><dd id="r-pagamento">💵 Dinheiro</dd>
+      </dl>
+      <ul class="resumo-itens" id="r-itens"></ul>
+      <div class="resumo-desconto oculto" id="r-desconto-linha"><span>🏷️ Desconto</span><span id="r-desconto"></span></div>
+      <div class="resumo-total"><span>Total</span><strong id="r-total">R$ 0,00</strong></div>
+      <p class="resumo-fiado" id="resumo" aria-live="polite"></p>
+      <p class="resumo-dica" id="resumo-dica">Conclua as 3 etapas para {{ "guardar a compra antiga" if antiga else "cadastrar a venda" }}.</p>
+      <button type="submit" class="verde" id="cadastrar">{{ "✅ GUARDAR COMPRA ANTIGA" if antiga else "✅ CADASTRAR VENDA" }}</button>
+    </div>
+  </aside>
+</form>
+
+{% if not antiga %}
+<section class="cartao vendas-hoje" aria-labelledby="titulo-vendas-hoje">
+  <div class="secao-com-chip">
+    <h2 class="secao" id="titulo-vendas-hoje">🛍️ Vendas de hoje</h2>
+    {% if vendas_hoje %}
+    <span class="chip">{{ vendas_hoje|length }} {{ "venda" if vendas_hoje|length == 1 else "vendas" }}{% if s.e_dona %} · {{ total_hoje|reais }}{% endif %}</span>
+    {% endif %}
+  </div>
+  {% if vendas_hoje %}
+  <ul class="lista">
+    {% for v in vendas_hoje %}
+    <li><a class="item" href="/vender/feita/{{ v.id }}">
+      <div><div class="nome">{{ v.cliente_nome }}</div>
+        <div class="sub">{{ v.itens_texto }} · {{ FORMAS[v.forma_pagamento] }}{% if v.forma_pagamento == "fiado" and v.vezes %} {{ v.vezes }}x{% endif %} · {{ v.hora }}</div></div>
+      <div class="valor">{{ v.total|reais }}</div>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="vazio">Nenhuma venda hoje ainda.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/camera.js?v={{ estilo_v }}"></script>
+<script>
+  // Nova venda: busca nas listas, carrinho de produtos, etapas acesas e resumo da venda.
+  (function () {
+    const form = document.getElementById("venda");
+    const preco = document.getElementById("preco");
+    const qtd = document.getElementById("quantidade");
+    const fiado = document.getElementById("fiado");
+    const resumo = document.getElementById("resumo");
+    const avisoEstoque = document.getElementById("aviso-estoque");
+    const botaoAdicionar = document.getElementById("adicionar");
+    const area = document.getElementById("area-adicionar");
+    const ler = (t) => { t = String(t || "").replace("R$", "").trim(); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return parseFloat(t) || 0; };
+    const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const escrever = (v) => v.toFixed(2).replace(".", ",");
+    const marcado = (nome) => form.querySelector(`input[name=${nome}]:checked`);
+    const limparEscolha = () => {
+      const r = marcado("produto_id");
+      if (r) r.checked = false;
+      if (preco) preco.value = "";
+      if (qtd) qtd.value = 1;
+      if (filtros["busca-produto"]) filtros["busca-produto"]();
+    };
+    // paga 2 vezes no mês com os dois dias iguais (só importa com mais de 1 parcela)
+    const diasIguais = () => marcado("forma").value === "fiado" && marcado("por_mes").value === "2"
+      && parseInt(document.getElementById("vezes").value) > 1
+      && document.getElementById("dia2").value === document.getElementById("dia").value;
+    const mostrar = (id, sim) => { const el = document.getElementById(id); if (el) el.classList.toggle("oculto", !sim); };
+
+    // Com JavaScript, quem vai para a venda é o carrinho: os campos do "produto escolhido" deixam de ser obrigatórios.
+    form.querySelectorAll("[data-obrigatorio]").forEach((el) => { el.required = false; });
+
+    // ---------------------------------------------------------------
+    // Busca: a lista nunca fica comprida. Clientes: sem digitar, as últimas 5.
+    // Produtos: sem digitar, nenhum (tela limpa). Digitando, no máximo 6 que combinam.
+    // Não liga para acento nem maiúscula; também acha pelo telefone ou código de barras.
+    // ---------------------------------------------------------------
+    const MAX_ACHADOS = 6;      // buscando pelo nome
+    const MAX_CATEGORIA = 8;    // só escolhendo a categoria (sem digitar)
+    let categoria = { id: "", nome: "" };  // categoria escolhida no painel de Filtros (só para produtos)
+    let precoMax = 0;                      // "Até R$ ..." escolhido no painel (0 = qualquer preço)
+    let letra = "";                        // letra escolhida no abecedário (só para clientes)
+    const semAcento = (t) => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    const filtros = {};
+    function filtroCurto({ campo, lista, titulo, nenhum, mais, rotuloUltimos, rotuloAchados, numeros, porCategoria, porLetra }) {
+      const busca = document.getElementById(campo);
+      if (!busca) return;
+      function filtrar() {
+        const termo = semAcento(busca.value);
+        const digitos = termo.replace(/\D/g, "");
+        const cat = porCategoria ? categoria.id : "";
+        const teto = porCategoria ? precoMax : 0;
+        const comLetra = porLetra ? letra : "";
+        const filtrando = !!(cat || teto || comLetra);
+        // com a letra escolhida aparecem TODAS as clientes daquela letra
+        const limite = comLetra ? Infinity : (termo ? MAX_ACHADOS : MAX_CATEGORIA);
+        let combinam = 0;
+        document.querySelectorAll(`#${lista} .opcao`).forEach((op) => {
+          const escolhida = op.querySelector("input").checked;
+          const naCategoria = !cat || (op.dataset.cats || "").split(" ").includes(cat);
+          const noPreco = !teto || ler(op.querySelector("input").dataset.preco) <= teto;
+          const naLetra = !comLetra || op.dataset.letra === comLetra;
+          const combina = naCategoria && noPreco && naLetra && (termo
+            ? semAcento(op.dataset.busca).includes(termo) || (digitos.length >= 3 && (op.dataset[numeros] || "").includes(digitos))
+            : (filtrando ? true : !!op.dataset.recente));
+          if (combina) combinam++;
+          op.classList.toggle("escondida", !(escolhida || (combina && combinam <= limite)));
+        });
+        const tituloEl = document.getElementById(titulo);
+        tituloEl.textContent = comLetra && !termo ? `🔤 Clientes com ${comLetra} (${combinam})`
+          : termo ? rotuloAchados : (filtrando ? "🔎 Produtos encontrados" : rotuloUltimos);
+        tituloEl.classList.toggle("oculto", !tituloEl.textContent);
+        mostrar(nenhum, (termo || filtrando) && combinam === 0);
+        mostrar(mais, combinam > limite);
+      }
+      busca.addEventListener("input", filtrar);
+      filtrar();
+      filtros[campo] = () => { busca.value = ""; if (porCategoria) escolherCategoria(null, false); filtrar(); };
+      filtros[campo + ":atualizar"] = filtrar;
+    }
+
+    // ---------------------------------------------------------------
+    // Painel de FILTROS (sobe de baixo): categoria, tipo (subcategoria) e preço.
+    // Os filtros escolhidos viram etiquetas em cima da lista, com ✕ para tirar.
+    // ---------------------------------------------------------------
+    const folha = document.getElementById("folha-filtros");
+    const fundo = document.getElementById("folha-fundo");
+    const marcar = (nome, valor) => { const r = form.querySelector(`input[name="${nome}"][value="${valor}"]`); if (r) r.checked = true; };
+    const valorDe = (nome) => { const r = marcado(nome); return r ? r.value : ""; };
+
+    function mostrarTipo(pai) {  // a seção "Tipo de ..." da categoria escolhida
+      document.querySelectorAll(".filtro-sub").forEach((sec) => sec.classList.toggle("oculto", sec.dataset.pai !== pai));
+    }
+    function abrirFolha() {
+      if (!folha) return;
+      // o painel abre mostrando o que já está escolhido
+      const pai = categoria.id  // se a escolhida é uma subcategoria, qual é a principal dela
+        ? document.querySelector(`.filtro-sub [value="${categoria.id}"]`)?.closest(".filtro-sub")?.dataset.pai
+        : undefined;
+      marcar("f_cat", pai || categoria.id);
+      if (pai) marcar(`f_sub_${pai}`, categoria.id);
+      marcar("f_preco", precoMax ? String(precoMax) : "");
+      mostrarTipo(pai || categoria.id);
+      fundo.classList.remove("oculto"); folha.classList.remove("oculto");
+      document.body.classList.add("com-folha");
+      document.getElementById("folha-titulo").focus();
+    }
+    function fecharFolha() {
+      if (!folha || folha.classList.contains("oculto")) return;
+      fundo.classList.add("oculto"); folha.classList.add("oculto");
+      document.body.classList.remove("com-folha");
+      document.getElementById("abrir-filtros").focus({ preventScroll: true });
+    }
+    function aplicarFiltros() {
+      const principalId = valorDe("f_cat");
+      const sub = principalId ? marcado(`f_sub_${principalId}`) : null;
+      const escolhida = sub && sub.value ? sub : marcado("f_cat");
+      categoria = { id: escolhida ? escolhida.value : "", nome: escolhida ? escolhida.dataset.nome || "" : "",
+                    icone: escolhida ? escolhida.dataset.icone || "" : "" };
+      precoMax = parseInt(valorDe("f_preco")) || 0;
+      desenharEtiquetas();
+      if (filtros["busca-produto:atualizar"]) filtros["busca-produto:atualizar"]();
+    }
+    function desenharEtiquetas() {
+      const caixa = document.getElementById("filtros-ativos");
+      if (!caixa) return;
+      caixa.innerHTML = "";
+      const etiquetas = [];
+      if (categoria.id) etiquetas.push([`${categoria.icone} ${categoria.nome}`.trim(), () => { categoria = { id: "", nome: "" }; }]);
+      if (precoMax) etiquetas.push([`Até ${reais(precoMax)}`, () => { precoMax = 0; }]);
+      etiquetas.forEach(([texto, tirar]) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "etiqueta-filtro";
+        b.setAttribute("aria-label", `Tirar o filtro ${texto}`);
+        b.textContent = `${texto} ✕`;
+        b.addEventListener("click", () => { tirar(); desenharEtiquetas(); filtros["busca-produto:atualizar"](); });
+        caixa.append(b);
+      });
+      caixa.classList.toggle("oculto", !etiquetas.length);
+      const qtd = document.getElementById("filtros-qtd");
+      qtd.textContent = etiquetas.length; qtd.classList.toggle("oculto", !etiquetas.length);
+    }
+    if (folha) {
+      document.getElementById("abrir-filtros").addEventListener("click", abrirFolha);
+      fundo.addEventListener("click", fecharFolha);
+      document.getElementById("aplicar-filtros").addEventListener("click", () => { aplicarFiltros(); fecharFolha(); });
+      document.getElementById("limpar-filtros").addEventListener("click", () => {
+        marcar("f_cat", ""); marcar("f_preco", "");
+        document.querySelectorAll(".filtro-sub").forEach((sec) => { const r = sec.querySelector('input[value=""]'); if (r) r.checked = true; });
+        mostrarTipo(""); aplicarFiltros(); fecharFolha();
+      });
+      form.querySelectorAll('input[name="f_cat"]').forEach((r) => r.addEventListener("change", () => mostrarTipo(r.value)));
+      document.querySelectorAll(".ver-todas").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll(`#${b.dataset.grupo} .extra`).forEach((op) => op.classList.remove("oculto"));
+        b.remove();
+      }));
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharFolha(); });
+    }
+    // volta sem filtros (ao escolher um produto ou fechar a busca): tela limpa
+    function escolherCategoria(_botao, filtrar = true) {
+      categoria = { id: "", nome: "" }; precoMax = 0;
+      desenharEtiquetas();
+      if (filtrar && filtros["busca-produto:atualizar"]) filtros["busca-produto:atualizar"]();
+    }
+
+    filtroCurto({ campo: "busca-cliente", lista: "lista-clientes", titulo: "titulo-clientes", nenhum: "nenhum-cliente",
+                  mais: "mais-clientes", rotuloUltimos: "🕘 Últimas clientes", rotuloAchados: "🔎 Clientes encontradas", numeros: "tel",
+                  porLetra: true });
+
+    // ---------------------------------------------------------------
+    // Abecedário das clientes (painel que sobe de baixo, igual ao de Filtros)
+    // ---------------------------------------------------------------
+    const folhaLetras = document.getElementById("folha-letras");
+    const fundoLetras = document.getElementById("letras-fundo");
+    function abrirLetras() {
+      document.querySelectorAll(".letra-op").forEach((b) => b.classList.toggle("ativo", b.dataset.letra === letra));
+      fundoLetras.classList.remove("oculto"); folhaLetras.classList.remove("oculto");
+      document.body.classList.add("com-folha");
+      document.getElementById("letras-titulo").focus();
+    }
+    function fecharLetras() {
+      if (!folhaLetras || folhaLetras.classList.contains("oculto")) return;
+      fundoLetras.classList.add("oculto"); folhaLetras.classList.add("oculto");
+      document.body.classList.remove("com-folha");
+      document.getElementById("abrir-letras").focus({ preventScroll: true });
+    }
+    // com uma letra escolhida, as clientes aparecem em ordem alfabética; sem letra, volta a ordem
+    // normal (as que compraram por último primeiro)
+    const listaClientes = document.getElementById("lista-clientes");
+    const ordemNormal = listaClientes ? [...listaClientes.children] : [];
+    const porNome = [...ordemNormal].sort((a, b) => (a.dataset.busca || "").localeCompare(b.dataset.busca || "", "pt-BR"));
+    function usarLetra(nova) {
+      letra = nova;
+      if (listaClientes) listaClientes.append(...(letra ? porNome : ordemNormal));
+      const caixa = document.getElementById("letras-ativas");
+      caixa.innerHTML = "";
+      if (letra) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "etiqueta-filtro";
+        b.textContent = `Letra ${letra} ✕`;
+        b.setAttribute("aria-label", `Tirar o filtro da letra ${letra}`);
+        b.addEventListener("click", () => usarLetra(""));
+        caixa.append(b);
+      }
+      caixa.classList.toggle("oculto", !letra);
+      document.getElementById("letras-qtd").classList.toggle("oculto", !letra);
+      if (filtros["busca-cliente:atualizar"]) filtros["busca-cliente:atualizar"]();
+    }
+    if (folhaLetras) {
+      document.getElementById("abrir-letras").addEventListener("click", abrirLetras);
+      fundoLetras.addEventListener("click", fecharLetras);
+      document.getElementById("fechar-letras").addEventListener("click", fecharLetras);
+      document.getElementById("limpar-letras").addEventListener("click", () => { usarLetra(""); fecharLetras(); });
+      // tocou na letra: já filtra e fecha (menos toques)
+      document.querySelectorAll(".letra-op").forEach((b) => b.addEventListener("click", () => { usarLetra(b.dataset.letra); fecharLetras(); }));
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharLetras(); });
+    }
+    filtroCurto({ campo: "busca-produto", lista: "lista-produtos", titulo: "titulo-produtos", nenhum: "nenhum-produto",
+                  mais: "mais-produtos", rotuloUltimos: "", rotuloAchados: "🔎 Produtos encontrados", numeros: "codigo",
+                  porCategoria: true });
+
+    // ---------------------------------------------------------------
+    // Produto escolhido (antes de ir para o carrinho)
+    // ---------------------------------------------------------------
+    form.querySelectorAll("input[name=produto_id]").forEach((r) => r.addEventListener("change", () => {
+      if (r.dataset.preco) preco.value = r.dataset.preco;
+      qtd.value = 1;
+      // escolheu: some o resto da busca e fica só o produto escolhido (tela limpa)
+      if (filtros["busca-produto"]) filtros["busca-produto"]();
+    }));
+
+    form.querySelectorAll(".contador-botao").forEach((b) => b.addEventListener("click", () => {
+      qtd.value = Math.max(1, (parseInt(qtd.value) || 1) + parseInt(b.dataset.passo));
+      atualizar();
+    }));
+
+    function escolhido() {
+      // O produto que está escolhido agora (ainda fora do carrinho), ou null se falta algo.
+      const r = marcado("produto_id");
+      if (!r) return null;
+      const valor = ler(preco.value);
+      if (!(valor > 0)) return null;
+      return { id: r.value, nome: r.dataset.nome, preco: valor, qtd: Math.max(1, parseInt(qtd.value) || 1),
+               estoque: parseInt(r.dataset.estoque) || 0 };
+    }
+
+    // ---------------------------------------------------------------
+    // Carrinho
+    // ---------------------------------------------------------------
+    const carrinho = [];
+    const lista = document.getElementById("carrinho-lista");
+    const avisoAdicionado = document.getElementById("adicionado");
+    let buscando = true;  // a área de buscar produto está aberta?
+    let tempoAviso;
+
+    function mostrarAviso(texto) {
+      avisoAdicionado.textContent = texto;
+      avisoAdicionado.classList.remove("oculto");
+      clearTimeout(tempoAviso);
+      tempoAviso = setTimeout(() => avisoAdicionado.classList.add("oculto"), 3500);
+    }
+
+    // REGRA: só vende o que tem no estoque. O mesmo produto, somado no carrinho, nunca passa dele.
+    // (estoque 0 = item sem estoque no sistema, como o da encomenda: sem limite)
+    const noCarrinho = (id) => carrinho.filter((c) => c.id === id).reduce((s, c) => s + c.qtd, 0);
+    const livreNoEstoque = (id, estoque) => (estoque ? Math.max(0, estoque - noCarrinho(id)) : Infinity);
+
+    function adicionar(item, avisar = true) {
+      // Devolve false se não coube nada (todo o estoque já está no carrinho).
+      const livre = livreNoEstoque(item.id, item.estoque);
+      if (livre <= 0) {
+        if (avisar) mostrarAviso(`⚠️ Só tem ${item.estoque} no estoque, e já estão todos no carrinho.`);
+        return false;
+      }
+      item.qtd = Math.min(item.qtd, livre);
+      const igual = carrinho.find((c) => c.id === item.id && c.nome === item.nome && c.preco === item.preco);
+      if (igual) igual.qtd += item.qtd; else carrinho.push(item);
+      // limpa a escolha e fecha a busca: a tela volta a mostrar só o carrinho
+      limparEscolha();
+      buscando = false;
+      if (avisar) mostrarAviso(`✅ ${item.qtd}x ${item.nome} no carrinho.`);
+      desenharCarrinho();
+      return true;
+    }
+
+    function abrirBusca(abrir) {
+      buscando = abrir;
+      avisoAdicionado.classList.add("oculto");
+      desenharCarrinho();
+      if (abrir) { const b = document.getElementById("busca-produto"); if (b) b.focus(); }
+    }
+    const abrirBotao = document.getElementById("abrir-busca");
+    const fecharBotao = document.getElementById("fechar-busca");
+    if (abrirBotao) abrirBotao.addEventListener("click", () => abrirBusca(true));
+    if (fecharBotao) fecharBotao.addEventListener("click", () => {
+      limparEscolha();
+      abrirBusca(false);
+    });
+
+    function campoOculto(nome, valor) {
+      const i = document.createElement("input");
+      i.type = "hidden"; i.name = nome; i.value = valor;
+      return i;
+    }
+
+    function desenharCarrinho() {
+      lista.innerHTML = "";
+      carrinho.forEach((c, n) => {
+        const li = document.createElement("li");
+        li.className = "carrinho-item";
+        const cheio = c.estoque && noCarrinho(c.id) >= c.estoque;  // todo o estoque já está no carrinho
+        const comDesconto = c.descNum > 0;
+        li.innerHTML = `
+          <span class="avatar" aria-hidden="true"></span>
+          <span class="opcao-texto"><strong></strong><small>${reais(c.preco)} cada${cheio ? ` · <b class="alerta">só tem ${c.estoque}</b>` : ""}</small></span>
+          <span class="carrinho-qtd">
+            <button type="button" class="mini" data-acao="menos" aria-label="Diminuir">−</button>
+            <span class="numero">${c.qtd}</span>
+            <button type="button" class="mini" data-acao="mais" aria-label="${cheio ? `Não tem mais no estoque (só tem ${c.estoque})` : "Aumentar"}"${cheio ? " disabled" : ""}>+</button>
+          </span>
+          <span class="opcao-preco"><s class="preco-antes oculto"></s><span class="preco-agora"></span></span>
+          <button type="button" class="mini tirar" data-acao="tirar" aria-label="Tirar do carrinho">✕</button>
+          <div class="item-desconto">
+            <button type="button" class="link-desconto" data-acao="desconto" aria-expanded="${c.abrirDesc ? "true" : "false"}">🏷️ ${comDesconto ? "Mudar o desconto" : "Dar desconto neste produto"}</button>
+            <div class="desconto-linha${c.abrirDesc ? "" : " oculto"}">
+              <input type="text" inputmode="decimal" placeholder="0" autocomplete="off">
+              <span class="segmentos-mini" role="group" aria-label="Desconto em reais ou em porcentagem">
+                <button type="button" data-tipo="reais" aria-pressed="${c.descTipo !== "pct"}">R$</button>
+                <button type="button" data-tipo="pct" aria-pressed="${c.descTipo === "pct"}">%</button>
+              </span>
+            </div>
+          </div>`;
+        li.querySelector(".avatar").textContent = c.nome.slice(0, 1).toUpperCase();
+        li.querySelector("strong").textContent = c.nome;  // texto puro: o nome nunca vira código
+        const campoDesc = li.querySelector(".desconto-linha input");
+        campoDesc.value = c.descTexto || "";
+        campoDesc.setAttribute("aria-label", `Desconto em ${c.nome}`);
+        c.el = { antes: li.querySelector(".preco-antes"), agora: li.querySelector(".preco-agora"),
+                 desconto: campoOculto("item_desconto", "") };
+        li.append(campoOculto("item_produto", c.id), campoOculto("item_descricao", c.nome),
+                  campoOculto("item_qtd", c.qtd), campoOculto("item_preco", escrever(c.preco)), c.el.desconto);
+        li.querySelectorAll("[data-acao]").forEach((b) => b.addEventListener("click", () => {
+          if (b.dataset.acao === "mais" && livreNoEstoque(c.id, c.estoque) > 0) c.qtd++;
+          if (b.dataset.acao === "menos") c.qtd = Math.max(1, c.qtd - 1);
+          if (b.dataset.acao === "tirar") carrinho.splice(n, 1);
+          if (b.dataset.acao === "desconto") c.abrirDesc = !c.abrirDesc;
+          if (!carrinho.length) buscando = true;  // carrinho vazio: volta a mostrar a busca
+          desenharCarrinho();
+          if (b.dataset.acao === "desconto" && c.abrirDesc) lista.children[n].querySelector(".desconto-linha input").focus();
+        }));
+        // desconto do produto: em R$ (do item todo) ou em % (do preço); só atualiza os valores, sem redesenhar
+        campoDesc.addEventListener("input", () => { c.descTexto = campoDesc.value; c.descNum = ler(campoDesc.value); atualizar(); });
+        li.querySelectorAll("[data-tipo]").forEach((b) => b.addEventListener("click", () => {
+          c.descTipo = b.dataset.tipo;
+          li.querySelectorAll("[data-tipo]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+          atualizar(); campoDesc.focus();
+        }));
+        lista.append(li);
+      });
+      const unidades = carrinho.reduce((s, c) => s + c.qtd, 0);
+      document.getElementById("carrinho-qtd").textContent = `${unidades} ${unidades === 1 ? "item" : "itens"}`;
+      const temItens = carrinho.length > 0;
+      const abrirArea = !temItens || buscando;
+      mostrar("carrinho", temItens);
+      if (area) area.classList.toggle("oculto", !abrirArea);
+      mostrar("abrir-busca", temItens && !abrirArea);
+      mostrar("fechar-busca", temItens && abrirArea);
+      atualizar();
+    }
+
+    // ---------------------------------------------------------------
+    // DESCONTO: em cada produto e/ou na compra toda, em R$ ou em %. Nunca passa do valor.
+    // ---------------------------------------------------------------
+    const centavos = (v) => Math.round(v * 100) / 100;
+    const brutoItem = (c) => c.preco * c.qtd;
+    function descontoItem(c) {
+      const n = Math.max(0, c.descNum || 0);
+      return centavos(Math.min(brutoItem(c), c.descTipo === "pct" ? brutoItem(c) * Math.min(n, 100) / 100 : n));
+    }
+    const liquidoItem = (c) => centavos(brutoItem(c) - descontoItem(c));
+    const somaItens = () => centavos(carrinho.reduce((s, c) => s + liquidoItem(c), 0));
+    const geral = { tipo: "reais", num: 0 };
+    function descontoGeral() {
+      const base = somaItens(), n = Math.max(0, geral.num || 0);
+      return centavos(Math.min(base, geral.tipo === "pct" ? base * Math.min(n, 100) / 100 : n));
+    }
+    const totalCarrinho = () => centavos(somaItens() - descontoGeral());
+    const descontoTotal = () => centavos(carrinho.reduce((s, c) => s + descontoItem(c), 0) + descontoGeral());
+
+    const campoGeral = document.getElementById("desconto-valor");
+    const abrirGeral = document.getElementById("abrir-desconto");
+    function mostrarGeral(abrir) {
+      mostrar("caixa-desconto", abrir);
+      abrirGeral.classList.toggle("oculto", abrir);
+      abrirGeral.setAttribute("aria-expanded", String(abrir));
+    }
+    abrirGeral.addEventListener("click", () => { mostrarGeral(true); campoGeral.focus(); });
+    campoGeral.addEventListener("input", () => { geral.num = ler(campoGeral.value); atualizar(); });
+    document.querySelectorAll("[data-tipo-geral]").forEach((b) => b.addEventListener("click", () => {
+      geral.tipo = b.dataset.tipoGeral;
+      document.querySelectorAll("[data-tipo-geral]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      atualizar(); campoGeral.focus();
+    }));
+    document.getElementById("tirar-desconto").addEventListener("click", () => {
+      geral.num = 0; campoGeral.value = ""; mostrarGeral(false); atualizar(); abrirGeral.focus();
+    });
+
+    // escreve os valores com desconto no carrinho, no resumo e nos campos que vão para o sistema
+    function desenharValores() {
+      carrinho.forEach((c) => {
+        if (!c.el) return;
+        const d = descontoItem(c);
+        c.el.antes.textContent = reais(brutoItem(c));
+        c.el.antes.classList.toggle("oculto", !(d > 0));
+        c.el.agora.textContent = reais(liquidoItem(c));
+        c.el.desconto.value = d > 0 ? escrever(d) : "";
+      });
+      const dg = descontoGeral(), dt = descontoTotal();
+      document.getElementById("desconto-reais").value = dg > 0 ? escrever(dg) : "";
+      document.getElementById("carrinho-subtotal").textContent = reais(centavos(carrinho.reduce((s, c) => s + brutoItem(c), 0)));
+      document.getElementById("carrinho-desconto").textContent = "− " + reais(dt);
+      mostrar("carrinho-subtotal-linha", dt > 0);
+      mostrar("carrinho-desconto-linha", dt > 0);
+      document.getElementById("carrinho-soma").textContent = reais(totalCarrinho());
+      document.getElementById("r-desconto").textContent = "− " + reais(dt);
+      mostrar("r-desconto-linha", dt > 0);
+    }
+
+    if (botaoAdicionar) botaoAdicionar.addEventListener("click", () => { const item = escolhido(); if (item) adicionar(item); });
+
+    // ---------------------------------------------------------------
+    // Resumo da venda e etapas
+    // ---------------------------------------------------------------
+    function definir(id, texto, falta) {
+      const el = document.getElementById(id);
+      el.textContent = texto;
+      el.classList.toggle("falta", !!falta);
+    }
+
+    function atualizar() {
+      const cliente = marcado("cliente_id");
+      const forma = marcado("forma");
+      const item = escolhido();
+      fiado.classList.toggle("oculto", forma.value !== "fiado");
+      mostrar("dividido", forma.value === "dividido");
+      // paga 2 vezes no mês: aparece o segundo dia (tem que ser diferente do primeiro)
+      const duasNoMes = marcado("por_mes").value === "2";
+      mostrar("campo-dia2", duasNoMes);
+      mostrar("aviso-dia2", diasIguais());
+      if (botaoAdicionar) botaoAdicionar.disabled = !item;
+
+      definir("r-cliente", cliente ? cliente.dataset.nome : "escolha a cliente", !cliente);
+      const unidades = carrinho.reduce((s, c) => s + c.qtd, 0);
+      definir("r-produto", carrinho.length ? `${unidades} ${unidades === 1 ? "item" : "itens"}` : "carrinho vazio", !carrinho.length);
+      definir("r-pagamento", forma.value === "dividido" ? textoPartes() || forma.dataset.nome : forma.dataset.nome, false);
+      const itens = document.getElementById("r-itens");
+      itens.innerHTML = "";
+      carrinho.forEach((c) => {
+        const li = document.createElement("li");
+        const nome = document.createElement("span");
+        nome.textContent = `${c.qtd}x ${c.nome}`;
+        const valor = document.createElement("span");
+        valor.textContent = reais(liquidoItem(c));
+        li.append(nome, valor);
+        itens.append(li);
+      });
+
+      // preço, quantidade e COLOCAR NO CARRINHO só aparecem com um produto escolhido
+      const r = marcado("produto_id");
+      mostrar("detalhe-produto", !!r);
+      const estoque = r && r.dataset.estoque ? parseInt(r.dataset.estoque) : 0;
+      // a quantidade nunca passa do que ainda tem no estoque (fora o que já está no carrinho)
+      const livre = r ? livreNoEstoque(r.value, estoque) : Infinity;
+      if (qtd && (parseInt(qtd.value) || 1) > livre) qtd.value = Math.max(1, livre);
+      const n = qtd ? parseInt(qtd.value) || 1 : 1;
+      if (botaoAdicionar && livre === 0) botaoAdicionar.disabled = true;
+      if (avisoEstoque) {
+        avisoEstoque.classList.toggle("oculto", !(estoque && n >= livre));
+        avisoEstoque.textContent = livre === 0 ? `Os ${estoque} do estoque já estão no carrinho.`
+          : livre < estoque ? `Só dá para pôr mais ${livre} (no estoque tem ${estoque}).` : `No estoque só tem ${estoque}.`;
+      }
+
+      const total = totalCarrinho();
+      desenharValores();
+      contarPartes(total);
+      document.getElementById("r-total").textContent = reais(total);
+      const aindaDeve = document.getElementById("ainda-deve");  // só na compra antiga
+      const noFiado = aindaDeve && ler(aindaDeve.value) > 0 ? Math.min(ler(aindaDeve.value), total) : total;
+      if (forma.value !== "fiado" || !total) { resumo.textContent = ""; }
+      else {
+        // conta em centavos (inteiros), igual ao sistema: as parcelas iguais e a sobra na 1ª
+        const vezes = parseInt(document.getElementById("vezes").value);
+        const centavos = Math.round(noFiado * 100);
+        const base = Math.floor(centavos / vezes) / 100;
+        const primeira = (centavos - Math.floor(centavos / vezes) * (vezes - 1)) / 100;
+        const dia = parseInt(document.getElementById("dia").value);
+        const dia2 = parseInt(document.getElementById("dia2").value);
+        const duasVezes = duasNoMes && dia2 !== dia && vezes > 1;
+        const quando = duasVezes ? `nos dias ${Math.min(dia, dia2)} e ${Math.max(dia, dia2)}` : `todo dia ${dia}`;
+        resumo.textContent = vezes === 1
+          ? `Fiado: 1 vez de ${reais(noFiado)}, dia ${dia}`
+          : `Fiado: ${vezes} vezes de ${reais(base)}${primeira !== base ? ` (a 1ª de ${reais(primeira)})` : ""}, ${quando}`;
+      }
+
+      // a etapa Produtos está pronta com algo no carrinho (ou um produto escolhido, que entra ao avançar)
+      prontas = [!!cliente, carrinho.length > 0 || !!item, true];
+      desenharPassos();
+    }
+
+    // ---------------------------------------------------------------
+    // PAGOU EM MAIS DE UMA FORMA: as partes têm que somar o total da venda
+    // ---------------------------------------------------------------
+    const camposPartes = [...form.querySelectorAll("[data-parte]")];
+    let partesFecham = true;
+    const somaPartes = () => centavos(camposPartes.reduce((s, c) => s + ler(c.value), 0));
+    const textoPartes = () => camposPartes.filter((c) => ler(c.value) > 0)
+      .map((c) => `${c.dataset.parte.split(" ").slice(1).join(" ")} ${reais(ler(c.value))}`).join(" + ");
+    function contarPartes(total) {
+      const conta = document.getElementById("parte-conta");
+      if (marcado("forma").value !== "dividido") { partesFecham = true; return; }
+      const soma = somaPartes(), falta = centavos(total - soma);
+      partesFecham = soma > 0 && Math.abs(falta) < 0.005;
+      conta.className = "parte-conta " + (partesFecham ? "certo" : falta > 0 ? "falta" : "passou");
+      conta.textContent = partesFecham ? `✅ Fechou certinho: ${reais(total)}`
+        : falta > 0 ? `Falta ${reais(falta)} para fechar ${reais(total)}`
+        : `⚠️ Passou ${reais(-falta)}. A venda é ${reais(total)}.`;
+      // o campo que ficou em branco mostra quanto falta (ajuda a completar)
+      const vazios = camposPartes.filter((c) => !c.value.trim());
+      camposPartes.forEach((c) => { c.placeholder = vazios.length === 1 && c === vazios[0] && falta > 0 ? escrever(falta) : "0,00"; });
+    }
+
+    // Uma telinha por etapa: Cliente > Produtos > Pagamento.
+    // Só avança quando a etapa está completa; a bolinha da etapa concluída fica verde.
+    const ORDEM = ["cliente", "produto", "pagamento"];
+    let prontas = [false, false, true];
+    let passo = 0;
+
+    function podeIr(i) { return prontas.slice(0, i).every(Boolean); }
+
+    function desenharPassos() {
+      document.querySelectorAll("#etapas li").forEach((li, i) => {
+        const concluida = i < passo && prontas[i];
+        li.classList.toggle("feita", concluida);
+        li.classList.toggle("atual", i === passo);
+        li.classList.toggle("alcancavel", i !== passo && podeIr(i));
+        li.setAttribute("aria-current", i === passo ? "step" : "false");
+        document.getElementById(`etapa-${ORDEM[i]}`).classList.toggle("feita", concluida);
+      });
+      document.querySelectorAll(".passo-avancar").forEach((b) => { b.disabled = !podeIr(parseInt(b.dataset.ir)); });
+      const ultimo = passo === ORDEM.length - 1;
+      form.classList.toggle("no-pagamento", ultimo);
+      document.getElementById("resumo-dica").classList.toggle("oculto", ultimo);
+    }
+
+    function irPara(i, rolar = true) {
+      if (!podeIr(i)) return;
+      // saindo da etapa Produtos com um produto escolhido e não colocado: ele entra no carrinho
+      if (passo === 1 && i > 1) { const item = escolhido(); if (item) adicionar(item, false); }
+      if (i > 1 && !carrinho.length) return;
+      passo = i;
+      ORDEM.forEach((nome, j) => document.getElementById(`etapa-${nome}`).classList.toggle("ativa", j === i));
+      desenharPassos();
+      if (rolar) document.getElementById("etapas").scrollIntoView({ behavior: "smooth", block: "start" });
+      if (i === 1 && buscando) { const b = document.getElementById("busca-produto"); if (b) b.focus({ preventScroll: true }); }
+    }
+
+    document.querySelectorAll("[data-ir]").forEach((el) => el.addEventListener("click", () => irPara(parseInt(el.dataset.ir))));
+
+    // escolheu a cliente: fica verde e vai sozinha para a telinha dos produtos
+    form.querySelectorAll("input[name=cliente_id]").forEach((r) => r.addEventListener("change", () => {
+      atualizar();
+      setTimeout(() => irPara(1), 350);
+    }));
+
+    // ---------------------------------------------------------------
+    // LEITOR DE CÓDIGO DE BARRAS (maquininha USB): ele "digita" o código muito rápido e aperta Enter.
+    // Ler o código em qualquer etapa põe o produto direto no carrinho (1 unidade, preço do cadastro).
+    // Digitar o código inteiro na busca de produto e apertar Enter faz o mesmo.
+    // ---------------------------------------------------------------
+    const porCodigo = {};
+    form.querySelectorAll("#lista-produtos .opcao").forEach((op) => {
+      const codigo = (op.dataset.codigo || "").trim().toLowerCase();
+      if (codigo) porCodigo[codigo] = op.querySelector("input");
+    });
+    const avisoCodigo = document.getElementById("aviso-codigo");
+    let tempoCodigo;
+    function avisarCodigo(texto) {
+      avisoCodigo.textContent = texto;
+      avisoCodigo.classList.remove("oculto");
+      clearTimeout(tempoCodigo);
+      tempoCodigo = setTimeout(() => avisoCodigo.classList.add("oculto"), 5000);
+    }
+    let lido = "", ultimaTecla = 0;
+    document.addEventListener("keydown", (e) => {
+      const agora = Date.now();
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        lido = agora - ultimaTecla < 60 ? lido + e.key : e.key;  // tecla atrás de tecla, rápido = leitor
+        ultimaTecla = agora;
+        return;
+      }
+      // fim da leitura: Enter, ou Ctrl+J ("pular linha") em alguns leitores
+      if (e.key !== "Enter" && !(e.ctrlKey && e.code === "KeyJ")) return;
+      const campo = e.target;
+      const peloLeitor = lido.length >= 3 && agora - ultimaTecla < 150;
+      const codigo = peloLeitor ? lido : (campo.id === "busca-produto" ? campo.value.trim() : "");
+      lido = "";
+      if (!codigo) return;
+      if (!porCodigo[codigo.toLowerCase()] && !peloLeitor) return;  // digitou um nome na busca: segue normal
+      e.preventDefault(); e.stopPropagation();
+      // o leitor escreveu o código no campo onde estava: tira de lá
+      if (typeof campo.value === "string" && campo.value.endsWith(codigo)) {
+        campo.value = campo.value.slice(0, -codigo.length);
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      lerCodigo(codigo);
+    }, true);
+
+    // CÂMERA DO CELULAR: lê o código de barras, faz o bip e segue igual à maquininha (camera.js)
+    const botaoCamera = document.getElementById("ler-camera");
+    if (botaoCamera) botaoCamera.addEventListener("click", () => window.lerComCamera(lerCodigo));
+
+    // O código lido (maquininha ou câmera): põe o produto no carrinho e vai para o carrinho.
+    function lerCodigo(codigo) {
+      const r = porCodigo[codigo.toLowerCase()];
+      if (!r) { avisarCodigo("⚠️ Esse código de barras não está cadastrado (ou o produto acabou). Cadastre em PRODUTOS."); return; }
+      const estoque = parseInt(r.dataset.estoque) || 0;
+      if (!adicionar({ id: r.value, nome: r.dataset.nome, preco: ler(r.dataset.preco), qtd: 1, estoque }, false)) {
+        avisarCodigo(`⚠️ Só tem ${estoque} de ${r.dataset.nome} no estoque, e já estão todos no carrinho.`);
+        return;
+      }
+      const temCliente = !!marcado("cliente_id");
+      avisarCodigo(`✅ ${r.dataset.nome} no carrinho.${temCliente ? "" : " Agora escolha a cliente."}`);
+      if (temCliente) irPara(1);
+    }
+
+    // "Enter" no teclado não cadastra a venda antes da hora: na etapa Produtos, coloca no carrinho
+    form.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.target.tagName === "BUTTON" || passo === ORDEM.length - 1) return;
+      if (e.target.closest && e.target.closest("#folha-filtros, #folha-letras")) { e.preventDefault(); return; }
+      e.preventDefault();
+      if (e.target.type === "search") return;
+      if (passo === 1) { const item = escolhido(); if (item) adicionar(item); return; }
+      irPara(passo + 1);
+    });
+    form.addEventListener("submit", (e) => {
+      if (passo !== ORDEM.length - 1 || !carrinho.length) { e.preventDefault(); irPara(Math.min(passo + 1, 2)); return; }
+      if (!partesFecham) {
+        e.preventDefault();
+        document.getElementById("dividido").scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (diasIguais()) {
+        e.preventDefault();
+        document.getElementById("campo-dia2").scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("dia2").focus();
+        return;
+      }
+      // só o carrinho vai para a venda: o "produto escolhido" (vazio a esta altura) fica de fora
+      form.querySelectorAll("input[name=produto_id], #preco, #quantidade, #folha-filtros input").forEach((el) => { el.disabled = true; });
+    });
+
+    form.addEventListener("input", atualizar);
+    form.addEventListener("change", atualizar);
+    form.classList.add("js-passos");
+    // veio com um produto já escolhido (link com ?produto=) ou de uma encomenda: já entra no carrinho
+    const inicial = escolhido();
+    const daEncomenda = document.getElementById("item-inicial");
+    const doKit = document.getElementById("kit-inicial");
+    if (doKit) {
+      doKit.querySelectorAll("[data-id]").forEach((k) => {
+        const r = form.querySelector(`#lista-produtos input[value="${CSS.escape(k.dataset.id)}"]`);
+        if (r) adicionar({ id: r.value, nome: r.dataset.nome, preco: ler(r.dataset.preco), qtd: 1, estoque: parseInt(r.dataset.estoque) || 0 }, false);
+      });
+      if (ler(doKit.dataset.desconto) > 0) {
+        campoGeral.value = doKit.dataset.desconto; geral.num = ler(doKit.dataset.desconto);
+        mostrarGeral(true);
+      }
+      if (!carrinho.length) desenharCarrinho();
+      else atualizar();
+    } else if (inicial) adicionar(inicial, false);
+    else if (daEncomenda && ler(daEncomenda.dataset.preco) >= 0) {
+      adicionar({ id: "outro", nome: daEncomenda.dataset.nome, preco: ler(daEncomenda.dataset.preco), qtd: 1, estoque: 0 }, false);
+    } else desenharCarrinho();
+    // abre na primeira etapa que falta (ex.: voltou do cadastro de cliente nova já com ela escolhida)
+    irPara(prontas.indexOf(false) === -1 ? (carrinho.length ? 2 : 1) : prontas.indexOf(false), false);
+  })();
+</script>
+{% endblock %}

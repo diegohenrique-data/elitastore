@@ -1,0 +1,42 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Venda", voltar="/vender" %}{% include "layout/_topo.html" %}{% endwith %}
+
+<section class="cartao sucesso" role="status">
+  <div class="sucesso-icone" aria-hidden="true">✅</div>
+  <h2>Venda cadastrada!</h2>
+  <p class="sucesso-valor">{{ v.total|reais }}</p>
+  <p class="sucesso-quem">para <strong>{{ c.nome }}</strong> · {{ FORMAS[v.forma_pagamento] }}</p>
+  {% if v.venda_pagamentos %}<p class="sucesso-quem">{% for p in v.venda_pagamentos %}{{ FORMAS[p.forma] }} {{ p.valor|reais }}{% if not loop.last %} + {% endif %}{% endfor %}</p>{% endif %}
+  <ul class="sucesso-itens">
+    {% for i in v.venda_itens %}<li>{{ i.quantidade }}x {{ i.descricao }}{% if i.desconto and i.desconto|float > 0 %} · 🏷️ desconto de {{ i.desconto|reais }}{% endif %}</li>{% endfor %}
+    {% if v.desconto and v.desconto|float > 0 %}<li>🏷️ Desconto na compra toda: {{ v.desconto|reais }}</li>{% endif %}
+  </ul>
+  {% if v.forma_pagamento == "fiado" and v.parcelas %}
+  <ul class="sucesso-parcelas" aria-label="Parcelas do fiado">
+    {% for p in v.parcelas|sort(attribute="numero") %}
+    <li><span>{{ p.numero }}ª · {{ p.vencimento|data_curta }}</span><strong>{{ p.valor|reais }}</strong></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<div class="acoes empilhadas">
+  {% if c.id %}
+  <a class="botao verde" href="{{ link_recibo }}" target="_blank" rel="noopener">📲 MANDAR RECIBO NO WHATSAPP</a>
+  {% if not c.whatsapp %}<p class="dica">{{ c.nome }} não tem WhatsApp cadastrado: você escolhe o contato no WhatsApp.</p>{% endif %}
+  {% endif %}
+  <a class="botao" href="/vender">➕ NOVA VENDA</a>
+  {% if da_encomenda %}<a class="botao claro" href="/encomendas">📦 VOLTAR PARA ENCOMENDAS</a>{% endif %}
+  <a class="botao claro" href="/">🏠 INÍCIO</a>
+  {% if pode_apagar %}<a class="botao claro perigo" href="/vendas/{{ v.id }}/apagar">🗑️ APAGAR ESTA VENDA</a>{% endif %}
+</div>
+
+{% if c.id %}
+<details class="cartao">
+  <summary><strong>Ver a mensagem do recibo</strong></summary>
+  <p class="previa-whatsapp">{{ recibo }}</p>
+</details>
+{% endif %}
+{% endblock %}

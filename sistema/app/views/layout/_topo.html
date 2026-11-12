@@ -1,0 +1,12 @@
+{% set destino = voltar|default('/') %}
+<header class="topo">
+  <nav class="topo-botoes" aria-label="Navegação">
+    {% if destino == "/" %}
+    <a class="voltar" href="/">🏠 INÍCIO</a>
+    {% else %}
+    <a class="voltar" href="{{ destino }}">⬅ VOLTAR</a>
+    <a class="voltar" href="/">🏠 INÍCIO</a>
+    {% endif %}
+  </nav>
+  <h1>{{ titulo }}</h1>
+</header>

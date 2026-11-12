@@ -1,0 +1,24 @@
+{# Moldura das telas de entrar / primeiro acesso: marca à esquerda (computador) ou no topo (celular). #}
+{% macro entrada() %}
+<div class="entrada-tela">
+  <section class="entrada-arte" aria-label="ElitaStore">
+    <div class="entrada-arte-conteudo">
+      <h1 class="entrada-logo"><img src="/static/logo-fundo-escuro.svg" alt="ElitaStore" width="384" height="168"></h1>
+      <p class="entrada-frase">Vendas, fiado e estoque na palma da mão.</p>
+      <ul class="entrada-lista">
+        <li><span aria-hidden="true">🛍️</span> Anote cada venda em poucos toques</li>
+        <li><span aria-hidden="true">💰</span> Saiba quem está no fiado e quando cobrar</li>
+        <li><span aria-hidden="true">👗</span> Veja o que tem no estoque, por categoria</li>
+      </ul>
+    </div>
+  </section>
+  <section class="entrada-form">
+    <div class="entrada-caixa">
+      {% if ok %}<p class="recado ok" role="status">✅ <span>Pronto! {{ ok }}</span></p>{% endif %}
+      {% if erro %}<p class="recado erro" role="alert">⚠️ <span>{{ erro }}</span></p>{% endif %}
+      {{ caller() }}
+      <p class="rodape">ElitaStore · versão {{ versao }}</p>
+    </div>
+  </section>
+</div>
+{% endmacro %}

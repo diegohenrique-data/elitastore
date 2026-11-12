@@ -1,0 +1,19 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Excluir da equipe", voltar="/equipe" %}{% include "layout/_topo.html" %}{% endwith %}
+<div class="cartao atrasado">
+  <p style="margin:0">Tem certeza que quer excluir esta pessoa da equipe?</p>
+  <p class="caminho" style="margin:8px 0 0">🙋 <strong>{{ p.nome or "Sem nome" }}</strong></p>
+  <ul style="margin:12px 0 0;padding-left:20px">
+    <li>O <strong>acesso dela (e-mail e senha)</strong> é apagado. Ela não entra mais no sistema.</li>
+    <li>O que ela cadastrou (produtos, pessoas, vendas) <strong>continua na loja</strong>.</li>
+    <li>Se precisar, você pode cadastrar ela de novo depois, com o mesmo e-mail.</li>
+  </ul>
+  <p style="margin:12px 0 0"><strong>Não dá para desfazer.</strong></p>
+</div>
+<form method="post" action="/equipe/{{ p.id }}/excluir" class="acoes duas">
+  <a class="botao claro" href="/equipe">NÃO, VOLTAR</a>
+  <button type="submit" class="perigo-cheio">🗑️ SIM, EXCLUIR</button>
+</form>
+{% endblock %}

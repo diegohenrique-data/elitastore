@@ -1,0 +1,19 @@
+{# Botões para pôr foto: "Tirar foto" (câmera, só aparece em celular/tablet) e
+   "Escolher da galeria" (no computador: "Escolher do computador").
+   Recebe: livres (quantas fotos ainda cabem), mandar ("sim" = guarda na hora), tem_principal. #}
+<div class="fotos-caixa" data-fotos data-max="{{ livres }}" data-mandar="{{ mandar }}" data-tem-principal="{{ tem_principal }}">
+  <div class="fotos-previas" aria-live="polite"></div>
+  <div class="fotos-botoes">
+    <label class="botao claro foto-botao so-toque">
+      <input type="file" class="fotos-escolher" name="fotos" accept="image/*" capture="environment">
+      <span aria-hidden="true">📷</span> TIRAR FOTO
+    </label>
+    <label class="botao claro foto-botao">
+      <input type="file" class="fotos-escolher" name="fotos" accept="image/*" {% if livres > 1 %}multiple{% endif %}>
+      <span aria-hidden="true">🖼️</span> <span class="so-toque-texto">ESCOLHER DA GALERIA</span><span class="so-mouse-texto">ESCOLHER FOTO DO COMPUTADOR</span>
+    </label>
+  </div>
+  <input type="file" class="fotos-guardar" multiple hidden>
+  <p class="fotos-contador" aria-live="polite"></p>
+  <p class="fotos-carregando" role="status">⏳ Preparando a foto...</p>
+</div>

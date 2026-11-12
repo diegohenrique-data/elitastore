@@ -1,0 +1,94 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{# Os avisos do dia (atrasados, cobrar hoje, encomenda, acabando, vencendo, parados).
+   No COMPUTADOR aparecem na tela. No CELULAR a tela fica limpa (só os botões roxos) e os avisos
+   ficam no 🔔 SININHO, que abre um painel subindo de baixo. #}
+{% set acabando = estoque.acabando|length + estoque.acabou|length %}
+{% set qtd_avisos = (1 if atrasados_qtd else 0) + (1 if hoje_qtd else 0) + (1 if chegaram else 0) + (1 if acabando else 0)
+                    + (1 if estoque.vencendo else 0) + (1 if estoque.parados else 0) %}
+{% set lista_avisos %}
+  {% if atrasados_qtd %}
+  <a class="aviso vermelho" href="/receber#atrasados">🔴 {{ atrasados_qtd }} {{ "pessoa atrasada" if atrasados_qtd == 1 else "pessoas atrasadas" }}: {{ atrasados_valor|reais }}</a>
+  {% endif %}
+  {% if hoje_qtd %}
+  <a class="aviso" href="/receber#hoje">🔔 {{ hoje_qtd }} {{ "pessoa para cobrar" if hoje_qtd == 1 else "pessoas para cobrar" }} hoje: {{ hoje_valor|reais }}</a>
+  {% endif %}
+  {% if chegaram %}
+  <a class="aviso" href="/encomendas">📦 {{ chegaram }} {{ "encomenda chegou" if chegaram == 1 else "encomendas chegaram" }}</a>
+  {% endif %}
+  {% if acabando %}
+  <a class="aviso" href="/produtos?f_situacao=acabando">⚠️ {{ acabando }} {{ "produto acabando" if acabando == 1 else "produtos acabando" }}</a>
+  {% endif %}
+  {% if estoque.vencendo %}
+  <a class="aviso" href="/produtos?f_situacao=vencendo">⏳ {{ estoque.vencendo|length }} perto de vencer</a>
+  {% endif %}
+  {% if estoque.parados %}
+  <a class="aviso" href="/ofertas">🎁 {{ estoque.parados|length }} {{ "produto parado" if estoque.parados|length == 1 else "produtos parados" }} há muito tempo: monte uma oferta</a>
+  {% endif %}
+  {% if not (atrasados_qtd or hoje_qtd or chegaram or acabando or estoque.vencendo or estoque.parados) %}
+  <p class="aviso tranquilo">😊 Nenhum aviso hoje. Tudo em dia!</p>
+  {% endif %}
+{% endset %}
+<header class="saudacao">
+  <div>
+    <h1>{{ saudacao }}, {{ u.primeiro_nome(s.nome) or "Elita" }}!</h1>
+    <p>{{ u.data_extenso() }}</p>
+  </div>
+  <button type="button" class="sino so-celular" id="abrir-avisos" aria-haspopup="dialog" aria-controls="folha-avisos"
+          aria-label="{{ qtd_avisos }} {{ 'aviso' if qtd_avisos == 1 else 'avisos' }} hoje">
+    <span aria-hidden="true">🔔</span>{% if qtd_avisos %}<span class="sino-qtd" aria-hidden="true">{{ qtd_avisos }}</span>{% endif %}
+  </button>
+</header>
+
+<section class="avisos avisos-na-tela" aria-label="Avisos de hoje">{{ lista_avisos }}</section>
+
+<div class="folha-fundo oculto" id="avisos-fundo"></div>
+<div class="folha oculto" id="folha-avisos" role="dialog" aria-modal="true" aria-labelledby="avisos-titulo">
+  <div class="folha-alca" aria-hidden="true"></div>
+  <h3 class="folha-titulo" id="avisos-titulo" tabindex="-1">🔔 Avisos de hoje</h3>
+  <div class="folha-conteudo"><section class="avisos" aria-label="Avisos de hoje">{{ lista_avisos }}</section></div>
+  <div class="folha-botoes um"><button type="button" class="claro" id="fechar-avisos">Fechar</button></div>
+</div>
+
+<a class="venda-destaque" href="/vender">
+  <span class="icone" aria-hidden="true">🛍️</span>
+  <span class="venda-destaque-texto">
+    <strong>VENDER</strong>
+    <small>Cadastrar uma venda nova</small>
+    <small class="venda-destaque-hoje">Hoje: {{ vendas_qtd or 0 }} {{ "venda" if vendas_qtd == 1 else "vendas" }}{% if s.e_dona %} · {{ (vendas_valor or 0)|reais }}{% endif %}</small>
+  </span>
+  <span class="seta" aria-hidden="true">➜</span>
+</a>
+
+<nav class="botoes" aria-label="Menu">
+  <a class="botao-grande" href="/receber"><span class="icone" aria-hidden="true">💰</span>RECEBER</a>
+  <a class="botao-grande" href="/produtos"><span class="icone" aria-hidden="true">👗</span>PRODUTOS</a>
+  <a class="botao-grande" href="/clientes"><span class="icone" aria-hidden="true">👩</span>PESSOAS</a>
+  <a class="botao-grande" href="/encomendas"><span class="icone" aria-hidden="true">📦</span>ENCOMENDAS</a>
+  {% if s.e_dona %}
+  <a class="botao-grande dinheiro" href="/meu-dinheiro"><span class="icone" aria-hidden="true">💵</span>MEU DINHEIRO</a>
+  {% endif %}
+</nav>
+{% endblock %}
+{% block scripts %}
+<script>
+  // 🔔 Sininho (celular): abre e fecha o painel dos avisos.
+  (function () {
+    const folha = document.getElementById("folha-avisos"), fundo = document.getElementById("avisos-fundo");
+    const sino = document.getElementById("abrir-avisos");
+    function abrir() {
+      fundo.classList.remove("oculto"); folha.classList.remove("oculto"); document.body.classList.add("com-folha");
+      document.getElementById("avisos-titulo").focus();
+    }
+    function fechar() {
+      if (folha.classList.contains("oculto")) return;
+      fundo.classList.add("oculto"); folha.classList.add("oculto"); document.body.classList.remove("com-folha");
+      sino.focus({ preventScroll: true });
+    }
+    sino.addEventListener("click", abrir);
+    fundo.addEventListener("click", fechar);
+    document.getElementById("fechar-avisos").addEventListener("click", fechar);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") fechar(); });
+  })();
+</script>
+{% endblock %}

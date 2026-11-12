@@ -1,0 +1,24 @@
+{# Painel do ABECEDÁRIO (igual ao de Filtros dos produtos): tocou na letra, aparecem todas as
+   pessoas que começam com ela. Letras sem ninguém ficam apagadas. Usado na Nova venda e em PESSOAS.
+   Precisa de: letras_clientes (as letras usadas) e quem ("Clientes" ou "Pessoas"). #}
+<div class="folha-fundo oculto" id="letras-fundo"></div>
+<div class="folha oculto" id="folha-letras" role="dialog" aria-modal="true" aria-labelledby="letras-titulo">
+  <div class="folha-alca" aria-hidden="true"></div>
+  <h3 class="folha-titulo" id="letras-titulo" tabindex="-1">Filtros</h3>
+  <div class="folha-conteudo">
+    <section class="filtro-secao">
+      <h4>{{ quem }} com a letra</h4>
+      <div class="grade-letras" id="grade-letras">
+        {% for letra in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" %}
+        {% set tem = letra in letras_clientes %}
+        <button type="button" class="letra-op" data-letra="{{ letra }}"{% if not tem %} disabled aria-label="{{ letra }}: ninguém com essa letra"{% endif %}>{{ letra }}</button>
+        {% endfor %}
+        {% if "#" in letras_clientes %}<button type="button" class="letra-op" data-letra="#" aria-label="Nomes que não começam com letra">#</button>{% endif %}
+      </div>
+    </section>
+  </div>
+  <div class="folha-botoes">
+    <button type="button" class="claro" id="limpar-letras">Limpar</button>
+    <button type="button" id="fechar-letras">Fechar</button>
+  </div>
+</div>

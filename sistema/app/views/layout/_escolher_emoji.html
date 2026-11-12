@@ -1,0 +1,12 @@
+{# Escolher o ÍCONE (emoji) de uma categoria: os mesmos emojis do teclado do WhatsApp, com as
+   abas e a busca. Fica dentro de um formulário e manda o campo "icone" (vazio = sem ícone escolhido).
+   Recebe: valor (o emoji atual ou ""), automatico (o ícone que o sistema põe sozinho),
+   mandar ("sim" = guarda na hora ao escolher ou tirar). O JavaScript é static/emojis.js. #}
+<div class="emoji-campo" data-emoji data-mandar="{{ mandar|default('') }}" data-automatico="{{ automatico|default('') }}">
+  <input type="hidden" name="icone" value="{{ valor }}">
+  <button type="button" class="claro emoji-abrir" aria-haspopup="dialog">
+    <span class="emoji-atual{% if not valor %} automatico{% endif %}" aria-hidden="true">{{ valor or automatico|default('') or "➕" }}</span>
+    <span class="emoji-texto">{% if valor %}Trocar o ícone{% else %}Escolher um ícone{% endif %}</span>
+  </button>
+  <button type="button" class="claro pequeno perigo emoji-tirar"{% if not valor %} hidden{% endif %}>✕ Tirar o ícone</button>
+</div>

@@ -1,0 +1,20 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Mudar data", voltar="/clientes/" ~ c.id %}{% include "layout/_topo.html" %}{% endwith %}
+{% if abertas %}
+<form method="post" action="/clientes/{{ c.id }}/mudar-data" class="cartao">
+  <fieldset class="escolhas uma-coluna">
+    <legend>Qual parcela?</legend>
+    {% for p in abertas %}
+    <label><input type="radio" name="parcela_id" value="{{ p.id }}" {% if loop.first %}checked{% endif %}>
+      <span>{{ p.vencimento|data_curta }} · {{ p.falta|reais }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <label class="campo"><span>Nova data</span><input type="date" name="nova_data" required></label>
+  <button type="submit">MUDAR DATA</button>
+</form>
+{% else %}
+<p class="vazio">{{ c.nome }} não tem parcelas em aberto.</p>
+{% endif %}
+{% endblock %}

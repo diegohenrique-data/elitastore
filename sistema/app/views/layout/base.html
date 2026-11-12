@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#100768">
+  {# cores sempre claras (o modo escuro forçado do Xiaomi/Samsung bagunçava as cores) e telefone sem virar link no iPhone #}
+  <meta name="color-scheme" content="light only">
+  <meta name="format-detection" content="telephone=no">
+  <script>
+    // QUE APARELHO É ESTE? Marca o <html> com o sistema (android, ios, computador), a marca
+    // (xiaomi, samsung...) e o navegador, para o visual e a câmera se ajustarem a cada um.
+    // "com-camera" = celular ou tablet: aparece o botão de ler código de barras com a câmera.
+    (function () {
+      const ua = navigator.userAgent || "";
+      const ipad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;  // iPad novo se diz "Mac"
+      const sistema = /iPhone|iPad|iPod/.test(ua) || ipad ? "ios" : /Android/i.test(ua) ? "android" : "computador";
+      const marca = /Xiaomi|MIUI|Redmi|POCO|HyperOS|MiuiBrowser/i.test(ua) ? "xiaomi"
+        : /SamsungBrowser|SM-[A-Z0-9]/.test(ua) ? "samsung"
+        : /Motorola|moto[ g]/i.test(ua) ? "motorola" : sistema === "ios" ? "apple" : "outra";
+      const navegador = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)/.test(ua) ? "dentro-de-app"
+        : /MiuiBrowser|XiaoMi/i.test(ua) ? "xiaomi" : /SamsungBrowser/.test(ua) ? "samsung"
+        : /EdgA?\/|EdgiOS/.test(ua) ? "edge" : /Firefox|FxiOS/.test(ua) ? "firefox"
+        : /CriOS|Chrome/.test(ua) ? "chrome" : /Safari/.test(ua) ? "safari" : "outro";
+      const toque = navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+      const h = document.documentElement;
+      h.dataset.sistema = sistema; h.dataset.marca = marca; h.dataset.navegador = navegador;
+      if (sistema !== "computador" || toque) h.classList.add("com-camera");
+      window.aparelho = { sistema, marca, navegador, toque };
+    })();
+  </script>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ElitaStore">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="icon" href="/static/icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/icone-apple-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+  <link rel="stylesheet" href="/static/estilo.css?v={{ estilo_v }}">
+  <title>{% block titulo %}ElitaStore{% endblock %}</title>
+</head>
+<body>
+{% set logado = s and s.ativo %}
+{% set caminho = request.url.path %}
+{% set botao_venda = logado and not caminho.startswith("/vender") %}
+<div class="layout{% if logado %} com-menu{% endif %}{% if botao_venda %} com-fab{% endif %}">
+  {% if logado %}
+  <aside class="lateral" aria-label="Menu">
+    <a class="marca" href="/"><img class="marca-logo" src="/static/logo-fundo-escuro-curta.svg" alt="ElitaStore" width="384" height="125"></a>
+    {% set vendendo = caminho.startswith("/vender") %}
+    <a class="menu-venda{% if vendendo %} ativo{% endif %}" href="/vender"{% if vendendo %} aria-current="page"{% endif %}><span class="ic" aria-hidden="true">🛍️</span>Vender<span class="mais" aria-hidden="true">+</span></a>
+    <nav>
+      {% set menu = [("/", "🏠", "Início"), ("/receber", "💰", "Receber"),
+                     ("/clientes", "👩", "Pessoas"), ("/produtos", "👗", "Produtos"),
+                     ("/encomendas", "📦", "Encomendas")] %}
+      {% if s.e_dona %}{% set menu = menu + [("/meu-dinheiro", "💵", "Meu dinheiro")] %}{% endif %}
+      {% for url, ic, nome in menu %}
+      {% set ativo = (caminho == "/") if url == "/" else (caminho.startswith(url) or (url == "/produtos" and (caminho.startswith("/categorias") or caminho.startswith("/mandar-o-que-tenho") or caminho.startswith("/ofertas"))) or (url == "/meu-dinheiro" and (caminho.startswith("/equipe") or caminho.startswith("/loja")))) %}
+      <a class="menu{% if ativo %} ativo{% endif %}" href="{{ url }}"{% if ativo %} aria-current="page"{% endif %}><span class="ic" aria-hidden="true">{{ ic }}</span>{{ nome }}</a>
+      {% endfor %}
+    </nav>
+    <div class="lateral-rodape">
+      {{ s.nome or "Conectada" }}<br>
+      <a href="/sair">Sair</a> · versão {{ versao }}
+    </div>
+  </aside>
+  {% endif %}
+
+  <div class="principal">
+    {% if logado %}
+    <header class="barra-movel">
+      <a class="marca" href="/"><img class="marca-logo" src="/static/logo-fundo-escuro-curta.svg" alt="ElitaStore" width="384" height="125"></a>
+      <a class="sair-movel" href="/sair">Sair</a>
+    </header>
+    {% endif %}
+    <main class="tela {% block largura %}larga{% endblock %}">
+      {% block recados %}
+      {% if ok %}<p class="recado ok" role="status">✅ <span>Pronto! {{ ok }}</span></p>{% endif %}
+      {% if erro %}<p class="recado erro" role="alert">⚠️ <span>{{ erro }}</span></p>{% endif %}
+      {% endblock %}
+      {% block conteudo %}{% endblock %}
+      {% block rodape %}<p class="rodape">ElitaStore · versão {{ versao }}</p>{% endblock %}
+    </main>
+  </div>
+</div>
+{% if botao_venda %}
+<a class="fab-venda so-celular" href="/vender" aria-label="Nova venda"><span class="mais" aria-hidden="true">+</span>Venda</a>
+{% endif %}
+<script>
+  // O leitor de código de barras termina cada leitura com Ctrl+J ("pular linha"), que no Chrome abre os
+  // downloads. Em todas as telas, o Ctrl+J não faz nada: a Elita fica no site.
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && (e.code === "KeyJ" || e.key === "j" || e.key === "J")) e.preventDefault();
+  }, true);
+  // NÃO GUARDA DUAS VEZES: tocou em guardar (venda, pagamento, produto...), o botão mostra
+  // "⏳ Guardando..." e um segundo toque não manda de novo (com internet lenta ela tocava 2 vezes).
+  // Fica por último (window): se a própria tela cancelou o envio, não faz nada.
+  // "Tem certeza?" antes de guardar, nos formulários com data-confirmar (tirar acesso, apagar foto...)
+  document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (f.dataset && f.dataset.confirmar && !f.dataset.enviando && !window.confirm(f.dataset.confirmar)) e.preventDefault();
+  });
+  window.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (e.defaultPrevented || (form.method || "").toLowerCase() !== "post") return;
+    if (form.dataset.enviando) { e.preventDefault(); return; }
+    form.dataset.enviando = "1";
+    const botao = e.submitter;
+    if (botao && botao.tagName === "BUTTON") {
+      botao.classList.add("guardando");
+      botao.setAttribute("aria-disabled", "true");
+      botao.dataset.textoAntes = botao.textContent;
+      botao.textContent = "⏳ Guardando...";
+    }
+  });
+  // voltou para a tela pelo botão do navegador: o formulário pode ser usado de novo
+  window.addEventListener("pageshow", () => {
+    document.querySelectorAll("form[data-enviando]").forEach((f) => { delete f.dataset.enviando; });
+    document.querySelectorAll("button.guardando").forEach((b) => {
+      b.classList.remove("guardando"); b.removeAttribute("aria-disabled");
+      if (b.dataset.textoAntes) b.textContent = b.dataset.textoAntes;
+    });
+  });
+</script>
+<script src="/static/efeitos.js?v={{ estilo_v }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

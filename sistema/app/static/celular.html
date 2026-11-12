@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ElitaStore · simulador de celular</title>
+  <style>
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 48px;
+      font-family: "Nunito", system-ui, sans-serif; color: #F9F5F5;
+      background: radial-gradient(900px 600px at 20% 10%, #380062, #100768 70%);
+    }
+    .celular {
+      width: 390px; height: min(860px, calc(100vh - 32px)); padding: 44px 14px 18px; border-radius: 56px; background: #0b0420;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .55), inset 0 0 0 2px #9688B3;
+      position: relative; flex: none;
+    }
+    .celular::before {
+      content: ""; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      width: 96px; height: 20px; border-radius: 20px; background: #000; box-shadow: inset 0 0 0 1px #2a2050; z-index: 2;
+    }
+    iframe { width: 100%; height: 100%; border: 0; border-radius: 10px 10px 40px 40px; background: #F9F5F5; }
+    .lado { max-width: 320px; }
+    .lado h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    .lado p { color: #B47CD6; margin: 0 0 18px; line-height: 1.5; }
+    .lado a {
+      display: block; margin: 0 0 10px; padding: 12px 18px; border-radius: 999px; text-decoration: none;
+      color: #F9F5F5; background: rgba(180, 124, 214, .18); border: 1px solid rgba(180, 124, 214, .4); font-weight: 700;
+    }
+    .lado a:hover { background: rgba(180, 124, 214, .32); }
+    @media (max-width: 860px) { .lado { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="celular"><iframe name="tela" src="/" title="ElitaStore no celular" allow="camera"></iframe></div>
+  <div class="lado">
+    <h1>Versão celular</h1>
+    <p>É o sistema de verdade, no tamanho de um celular (390 px). Pode tocar e navegar à vontade.</p>
+    <a href="/" target="tela">🏠 Início</a>
+    <a href="/vender" target="tela">🛍️ Vender</a>
+    <a href="/receber" target="tela">💰 Receber</a>
+    <a href="/produtos" target="tela">👗 Produtos</a>
+    <a href="/mandar-o-que-tenho" target="tela">📲 Mandar o que tenho</a>
+    <a href="/encomendas" target="tela">📦 Encomendas</a>
+    <a href="/meu-dinheiro" target="tela">💵 Meu dinheiro</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,80 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Sua oferta", voltar=voltar %}{% include "layout/_topo.html" %}{% endwith %}
+
+<section class="cartao oferta-resumo" aria-labelledby="titulo-oferta">
+  <h2 id="titulo-oferta">🎁 {{ nome_oferta }}</h2>
+  <ul class="resumo-itens">
+    {% for p in itens %}<li><span>{{ p.nome }}</span><span>{{ p.preco|reais }}</span></li>{% endfor %}
+  </ul>
+  <p class="oferta-preco">De <s>{{ conta.de|reais }}</s> por <strong>{{ conta.por|reais }}</strong></p>
+  <p class="sub sem-margem">A cliente economiza {{ conta.economia|reais }} ({{ conta.pct }}% de desconto).</p>
+</section>
+
+{% if com_foto %}
+<div class="cartao">
+  <h2>📸 {{ com_foto|length }} {{ "foto vai" if com_foto|length == 1 else "fotos vão" }} junto</h2>
+  <ul class="mandar-fotos">
+    {% for p in com_foto %}
+    <li data-foto="/produtos/{{ p.id }}/foto.jpg" data-nome="{{ p.nome }}">
+      <img src="{{ p.fotos[0] }}" alt="Foto de {{ p.nome }}" loading="lazy" decoding="async">
+      <a class="mandar-baixar" href="/produtos/{{ p.id }}/foto.jpg?baixar=1" download aria-label="Baixar a foto de {{ p.nome }}">⬇️ Baixar</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>💬 O texto que vai para a cliente:</h2>
+  <div class="previa-whatsapp">{{ msg }}</div>
+</div>
+
+<div class="acoes empilhadas">
+  {% if com_foto %}
+  <button type="button" class="verde oculto" id="mandar-com-fotos" data-texto="{{ msg }}" disabled>⏳ PREPARANDO AS FOTOS...</button>
+  <p class="dica oculto" id="dica-compartilhar">Vai abrir a janela de compartilhar: toque em <strong>WhatsApp</strong> e escolha a cliente.
+    Se o texto não for junto com as fotos, toque depois em MANDAR SÓ O TEXTO.</p>
+  <p class="dica" id="dica-computador">No computador: toque em ⬇️ Baixar em cada foto e arraste a foto para a conversa no WhatsApp Web. Depois mande o texto.</p>
+  {% endif %}
+  <a class="botao {% if com_foto %}claro{% else %}verde{% endif %}" href="{{ link }}" target="_blank" rel="noopener">💬 MANDAR SÓ O TEXTO</a>
+  <a class="botao" href="{{ vender }}">🛍️ A CLIENTE QUIS: VENDER ESTE KIT</a>
+  <p class="dica">VENDER ESTE KIT abre a Nova venda com os produtos no carrinho e o desconto de {{ conta.economia|reais }} já colocado.</p>
+  <a class="botao claro" href="{{ voltar }}">✏️ MUDAR A OFERTA</a>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if com_foto %}
+<script>
+  // MANDAR COM FOTOS: igual ao "Mandar o que tenho". As fotos são baixadas ao abrir a tela,
+  // porque o celular só deixa compartilhar logo depois do toque.
+  (function () {
+    const botao = document.getElementById("mandar-com-fotos");
+    if (!navigator.canShare || !navigator.share) return;
+    const itens = [...document.querySelectorAll("[data-foto]")];
+    let arquivos = [];
+    Promise.all(itens.map(async (li) => {
+      const r = await fetch(li.dataset.foto, { credentials: "same-origin" });
+      if (!r.ok) return null;
+      return new File([await r.blob()], (li.dataset.nome || "foto").replace(/[^\p{L}\p{N} ]+/gu, "").trim().slice(0, 50) + ".jpg", { type: "image/jpeg" });
+    })).then((lista) => {
+      arquivos = lista.filter(Boolean);
+      if (!arquivos.length || !navigator.canShare({ files: arquivos })) return;
+      botao.classList.remove("oculto");
+      document.getElementById("dica-compartilhar").classList.remove("oculto");
+      document.getElementById("dica-computador").classList.add("oculto");
+      botao.disabled = false;
+      botao.textContent = `📲 MANDAR COM ${arquivos.length === 1 ? "A FOTO" : arquivos.length + " FOTOS"}`;
+    }).catch(() => {});
+    botao.addEventListener("click", () => {
+      navigator.share({ files: arquivos, text: botao.dataset.texto }).catch((e) => {
+        if (e && e.name !== "AbortError") {
+          document.getElementById("dica-compartilhar").textContent = "Não consegui abrir o compartilhar. Use ⬇️ Baixar nas fotos e MANDAR SÓ O TEXTO.";
+        }
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "layout/base.html" %}
+{% block conteudo %}
+{% with titulo="Vendas e pagamentos · " ~ mes, voltar="/meu-dinheiro" %}{% include "layout/_topo.html" %}{% endwith %}
+<p class="dica">Toque numa venda para abrir e apagar. O que você apagar sai do Meu Dinheiro.</p>
+
+<h2 class="secao">Vendas deste mês</h2>
+{% if vendas %}
+<ul class="lista">{% for v in vendas %}
+  <li><a class="item" href="/vender/feita/{{ v.id }}">
+    <span><span class="nome">{{ v.cliente_nome }}</span><br>
+      <span class="sub">{{ v.data|data_curta }} · {{ v.itens_texto }} · {{ FORMAS[v.forma_pagamento] }}{% if v.forma_pagamento == "fiado" and v.vezes %} {{ v.vezes }}x{% endif %}{% if v.vendedor %} · por {{ v.vendedor }}{% endif %}</span></span>
+    <span class="valor">{{ v.total|reais }}</span>
+  </a></li>{% endfor %}</ul>
+{% else %}<p class="vazio">Nenhuma venda este mês.</p>{% endif %}
+
+<h2 class="secao">Pagamentos deste mês</h2>
+{% if pagamentos %}
+<ul class="lista">{% for pg in pagamentos %}
+  <li class="item"><span><span class="nome">{{ (pg.clientes or {}).nome }}</span><br><span class="sub">{{ pg.pago_em|data_curta }} · {{ FORMAS[pg.forma] }}</span></span>
+    <span class="valor-e-apagar"><span class="valor">{{ pg.valor|reais }}</span>
+      <form method="post" action="/pagamentos/{{ pg.id }}/apagar" data-confirmar="Apagar este pagamento de {{ pg.valor|reais }}? O valor volta a faltar no fiado."><button type="submit" class="claro pequeno perigo" aria-label="Apagar o pagamento de {{ pg.valor|reais }}">🗑️</button></form></span></li>{% endfor %}</ul>
+{% else %}<p class="vazio">Nenhum pagamento este mês.</p>{% endif %}
+{% endblock %}

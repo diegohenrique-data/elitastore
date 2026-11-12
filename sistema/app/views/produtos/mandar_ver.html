@@ -1,0 +1,72 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Mandar o que tenho", voltar=voltar %}{% include "layout/_topo.html" %}{% endwith %}
+<p class="passo">{% if escolhidas %}Passo 3 de 3 · {% endif %}Confira e mande ({{ total }} {{ "produto" if total == 1 else "produtos" }})</p>
+
+{% if com_foto %}
+<div class="cartao">
+  <h2>📸 {{ com_foto|length }} {{ "foto vai" if com_foto|length == 1 else "fotos vão" }} junto</h2>
+  <ul class="mandar-fotos">
+    {% for p in com_foto %}
+    <li data-foto="/produtos/{{ p.id }}/foto.jpg" data-nome="{{ p.nome }}">
+      <img src="{{ p.fotos[0] }}" alt="Foto de {{ p.nome }}" loading="lazy" decoding="async">
+      <a class="mandar-baixar" href="/produtos/{{ p.id }}/foto.jpg?baixar=1" download aria-label="Baixar a foto de {{ p.nome }}">⬇️ Baixar</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if com_foto|length < total %}<p class="sub">{{ total - com_foto|length }} sem foto: {{ "vai" if total - com_foto|length == 1 else "vão" }} só no texto.</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>💬 O texto que vai junto:</h2>
+  <div class="previa-whatsapp">{{ msg }}</div>
+</div>
+
+<div class="acoes empilhadas">
+  {% if com_foto %}
+  <button type="button" class="verde oculto" id="mandar-com-fotos" data-texto="{{ msg }}" disabled>⏳ PREPARANDO AS FOTOS...</button>
+  <p class="dica oculto" id="dica-compartilhar">Vai abrir a janela de compartilhar: toque em <strong>WhatsApp</strong> e escolha a cliente.
+    Se o texto não for junto com as fotos, toque depois em MANDAR SÓ O TEXTO.</p>
+  <p class="dica" id="dica-computador">No computador: toque em ⬇️ Baixar em cada foto e arraste a foto para a conversa no WhatsApp Web. Depois mande o texto.</p>
+  {% endif %}
+  <a class="botao {% if com_foto %}claro{% else %}verde{% endif %}" id="mandar-texto" href="{{ link }}" target="_blank" rel="noopener">💬 MANDAR SÓ O TEXTO</a>
+  {% if escolhidas %}<a class="botao claro" href="{{ voltar }}">✏️ MUDAR OS PRODUTOS</a>{% endif %}
+  <a class="botao claro" href="{{ outras }}">➕ JUNTAR PRODUTOS DE OUTRA CATEGORIA</a>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if com_foto %}
+<script>
+  // MANDAR COM FOTOS: o celular abre a janela de compartilhar (WhatsApp, etc.) com as fotos e o texto.
+  // As fotos são baixadas antes, ao abrir a tela: o celular só deixa compartilhar logo depois do toque.
+  (function () {
+    const botao = document.getElementById("mandar-com-fotos");
+    if (!navigator.canShare || !navigator.share) return;  // computador sem compartilhar: fica o Baixar
+    const itens = [...document.querySelectorAll("[data-foto]")];
+    let arquivos = [];
+    Promise.all(itens.map(async (li) => {
+      const r = await fetch(li.dataset.foto, { credentials: "same-origin" });
+      if (!r.ok) return null;
+      return new File([await r.blob()], (li.dataset.nome || "foto").replace(/[^\p{L}\p{N} ]+/gu, "").trim().slice(0, 50) + ".jpg", { type: "image/jpeg" });
+    })).then((lista) => {
+      arquivos = lista.filter(Boolean);
+      if (!arquivos.length || !navigator.canShare({ files: arquivos })) return;
+      botao.classList.remove("oculto");
+      document.getElementById("dica-compartilhar").classList.remove("oculto");
+      document.getElementById("dica-computador").classList.add("oculto");
+      botao.disabled = false;
+      botao.textContent = `📲 MANDAR COM ${arquivos.length === 1 ? "A FOTO" : arquivos.length + " FOTOS"}`;
+    }).catch(() => {});
+    botao.addEventListener("click", () => {
+      navigator.share({ files: arquivos, text: botao.dataset.texto }).catch((e) => {
+        if (e && e.name !== "AbortError") {
+          document.getElementById("dica-compartilhar").textContent = "Não consegui abrir o compartilhar. Use ⬇️ Baixar nas fotos e MANDAR SÓ O TEXTO.";
+        }
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

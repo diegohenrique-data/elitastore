@@ -1,0 +1,20 @@
+{% extends "layout/base.html" %}
+{% block largura %}estreita{% endblock %}
+{% block conteudo %}
+{% with titulo="Nova encomenda", voltar="/encomendas" %}{% include "layout/_topo.html" %}{% endwith %}
+<form method="post" action="/encomendas/nova" class="cartao">
+  <label class="campo"><span>Quem pediu?</span>
+    <select name="cliente_id" required>
+      <option value="">Escolha a pessoa</option>
+      {% for p in pessoas %}<option value="{{ p.id }}" {% if p.id == cliente %}selected{% endif %}>{{ p.nome }}</option>{% endfor %}
+    </select>
+    <small><a href="/clientes/nova?volta=/encomendas/nova">➕ Cadastrar pessoa nova</a></small></label>
+  <label class="campo"><span>O que ela pediu?</span>
+    <input type="text" name="descricao" required placeholder="Ex.: Perfume Asad 100ml"></label>
+  <label class="campo"><span>Preço combinado (opcional)</span>
+    <input type="text" name="preco" inputmode="decimal" placeholder="Ex.: 180,00"></label>
+  <label class="campo"><span>Deu sinal? Quanto? (opcional)</span>
+    <input type="text" name="sinal" inputmode="decimal" placeholder="Ex.: 50,00"></label>
+  <button type="submit">ANOTAR ENCOMENDA</button>
+</form>
+{% endblock %}
